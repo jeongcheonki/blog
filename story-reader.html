@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="동화읽기">
+<title>🌙 동화 읽어줘</title>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sky: #fef9ee;
+  --cloud: #fff8e7;
+  --paper: #fffdf5;
+  --ink: #3b2f1e;
+  --ink2: #6b5540;
+  --ink3: #a89078;
+  --accent: #ff7043;
+  --accent2: #ffb74d;
+  --green: #66bb6a;
+  --blue: #42a5f5;
+  --pink: #f48fb1;
+  --purple: #ba68c8;
+  --highlight: rgba(255, 220, 80, 0.45);
+  --highlight-active: rgba(255, 180, 40, 0.6);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: 'Gaegu', cursive;
+  background: var(--sky);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Starry bg dots */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 10% 15%, #ffd54f88 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 8%, #fff59d88 0%, transparent 100%),
+    radial-gradient(2px 2px at 60% 5%, #ffe08288 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 12%, #fff59d88 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 92% 7%, #ffd54f88 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 3%, #ffe08288 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: calc(var(--safe-top) + 12px) 0 calc(var(--safe-bottom) + 80px);
+  position: relative;
+  z-index: 1;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px 12px;
+}
+
+.app-title {
+  font-family: 'Nanum Pen Script', cursive;
+  font-size: 26px;
+  color: var(--ink);
+  letter-spacing: 1px;
+}
+
+.story-count {
+  font-size: 13px;
+  color: var(--ink3);
+}
+
+/* Story list (home) */
+.story-list {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.story-card {
+  background: var(--paper);
+  border-radius: 24px;
+  padding: 18px 20px;
+  border: 2.5px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px rgba(60,40,20,0.08), 0 1px 3px rgba(60,40,20,0.06);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.story-card::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  border-radius: 0 24px 0 80px;
+  opacity: 0.12;
+}
+
+.story-card.c1 { border-color: #ffcc8044; }
+.story-card.c1::before { background: var(--accent2); }
+.story-card.c2 { border-color: #90caf944; }
+.story-card.c2::before { background: var(--blue); }
+.story-card.c3 { border-color: #a5d6a744; }
+.story-card.c3::before { background: var(--green); }
+.story-card.c4 { border-color: #f48fb144; }
+.story-card.c4::before { background: var(--pink); }
+.story-card.c5 { border-color: #ce93d844; }
+.story-card.c5::before { background: var(--purple); }
+
+.story-card:active { transform: scale(0.97); }
+
+.story-emoji {
+  font-size: 46px;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.story-info { flex: 1; min-width: 0; }
+
+.story-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.story-preview {
+  font-size: 13px;
+  color: var(--ink3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.story-arrow {
+  font-size: 18px;
+  color: var(--ink3);
+  flex-shrink: 0;
+}
+
+/* Reader page */
+.reader-page {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  height: -webkit-fill-available;
+}
+
+.reader-page.show { display: flex; }
+
+.reader-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(var(--safe-top) + 10px) 16px 10px;
+  background: var(--sky);
+  flex-shrink: 0;
+}
+
+.back-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #e0d0b8;
+  background: var(--paper);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.12s;
+  color: var(--ink);
+}
+.back-btn:active { transform: scale(0.9); }
+
+.reader-title {
+  font-family: 'Nanum Pen Script', cursive;
+  font-size: 22px;
+  flex: 1;
+  color: var(--ink);
+}
+
+.reader-emoji-small { font-size: 26px; }
+
+/* Pages area */
+.pages-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 18px 20px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-block {
+  background: var(--paper);
+  border-radius: 22px;
+  padding: 22px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 3px 12px rgba(60,40,20,0.07);
+  position: relative;
+}
+
+.page-num {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 11px;
+  color: var(--ink3);
+  opacity: 0.6;
+}
+
+.page-illust {
+  font-size: 52px;
+  text-align: center;
+  margin-bottom: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.1));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.sentences {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sentence {
+  font-size: 22px;
+  line-height: 1.65;
+  color: var(--ink);
+  padding: 10px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  border: 2px solid transparent;
+  word-break: keep-all;
+  position: relative;
+}
+
+.sentence:active { transform: scale(0.98); }
+
+.sentence.speaking {
+  background: var(--highlight-active);
+  border-color: #ffb300;
+  animation: pulse-glow 0.6s ease-in-out infinite alternate;
+}
+
+.sentence.read {
+  background: var(--highlight);
+}
+
+@keyframes pulse-glow {
+  from { box-shadow: 0 0 0 0 rgba(255,179,0,0.25); }
+  to { box-shadow: 0 0 0 8px rgba(255,179,0,0); }
+}
+
+/* Word highlight inside sentence */
+.word {
+  display: inline;
+  border-radius: 4px;
+  transition: background 0.1s;
+  padding: 0 1px;
+}
+.word.active {
+  background: #ff8f00;
+  color: #fff;
+  border-radius: 4px;
+}
+
+/* Controls bar */
+.controls {
+  background: var(--paper);
+  border-top: 2px solid #f0e4d0;
+  padding: 10px 20px calc(var(--safe-bottom) + 12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.ctrl-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #e0d0b8;
+  background: var(--sky);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.12s, background 0.12s;
+  color: var(--ink);
+}
+.ctrl-btn:active { transform: scale(0.9); background: #f0e4d0; }
+.ctrl-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.speed-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.speed-label {
+  font-size: 11px;
+  color: var(--ink3);
+}
+
+.speed-slider {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 4px;
+}
+
+.read-all-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 22px;
+  padding: 10px 20px;
+  font-family: 'Gaegu', cursive;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(255,112,67,0.35);
+}
+.read-all-btn:active { transform: scale(0.95); }
+.read-all-btn.stop { background: #ef5350; box-shadow: 0 3px 10px rgba(239,83,80,0.35); }
+
+/* Hint */
+.hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink3);
+  padding: 6px 0 2px;
+  opacity: 0.7;
+}
+
+/* Home visible / hidden */
+.home-page { display: block; }
+.home-page.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<!-- HOME PAGE -->
+<div class="app home-page" id="home-page">
+  <div class="topbar">
+    <div class="app-title">📖 동화 읽어줘</div>
+    <div class="story-count">동화 5편</div>
+  </div>
+  <div class="hint" style="margin-bottom:12px;">읽고 싶은 동화를 골라봐요!</div>
+  <div class="story-list" id="story-list"></div>
+</div>
+
+<!-- READER PAGE -->
+<div class="reader-page" id="reader-page">
+  <div class="reader-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <div class="reader-title" id="reader-title"></div>
+    <div class="reader-emoji-small" id="reader-emoji"></div>
+  </div>
+  <div class="pages-area" id="pages-area"></div>
+  <div class="hint" id="hint-text">문장을 터치하면 읽어줘요 ✨</div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-slower" onclick="changeSpeed(-0.1)" title="느리게">🐢</button>
+    <div class="speed-wrap">
+      <div class="speed-label" id="speed-label">속도 보통</div>
+      <input type="range" class="speed-slider" min="0.5" max="1.8" step="0.1" value="0.9" id="speed-slider" oninput="onSpeedSlider()">
+    </div>
+    <button class="ctrl-btn" id="btn-faster" onclick="changeSpeed(0.1)" title="빠르게">🐇</button>
+    <button class="read-all-btn" id="read-all-btn" onclick="toggleReadAll()">▶ 전체 읽기</button>
+  </div>
+</div>
+
+<script>
+const STORIES = [
+  {
+    id: 1, color: 'c1',
+    emoji: '🐣', title: '아기 병아리의 첫 걸음',
+    pages: [
+      {
+        illust: '🐣',
+        sentences: [
+          '따뜻한 봄날 아침, 알에서 아기 병아리가 태어났어요.',
+          '병아리는 처음으로 눈을 떴어요.',
+          '세상이 너무나 넓고 신기했지요.',
+        ]
+      },
+      {
+        illust: '🌱',
+        sentences: [
+          '엄마 닭이 말했어요. "아가야, 걸어봐!"',
+          '병아리는 조심조심 한 발을 내밀었어요.',
+          '그러다 넘어졌지만, 다시 일어났어요.',
+        ]
+      },
+      {
+        illust: '🌸',
+        sentences: [
+          '드디어 병아리는 혼자 걸을 수 있게 되었어요!',
+          '"삐약삐약!" 기쁨에 겨워 소리쳤지요.',
+          '엄마 닭도 함께 기뻐했답니다. 끝.',
+        ]
+      }
+    ]
+  },
+  {
+    id: 2, color: 'c2',
+    emoji: '🌊', title: '파란 바다의 물고기 친구',
+    pages: [
+      {
+        illust: '🐠',
+        sentences: [
+          '파란 바다 속에 작은 물고기 방울이가 살았어요.',
+          '방울이는 늘 혼자였어요.',
+          '친구가 너무 갖고 싶었지요.',
+        ]
+      },
+      {
+        illust: '🐡',
+        sentences: [
+          '어느 날, 복어 친구를 만났어요.',
+          '"같이 놀자!" 방울이가 말했어요.',
+          '복어는 방글방글 웃으며 고개를 끄덕였어요.',
+        ]
+      },
+      {
+        illust: '🌈',
+        sentences: [
+          '둘은 산호초 사이를 신나게 헤엄쳤어요.',
+          '바다 속은 친구와 함께라서 더 예뻤어요.',
+          '방울이는 이제 외롭지 않았답니다. 끝.',
+        ]
+      }
+    ]
+  },
+  {
+    id: 3, color: 'c3',
+    emoji: '🌳', title: '숲 속의 작은 곰',
+    pages: [
+      {
+        illust: '🐻',
+        sentences: [
+          '초록 숲 속에 작고 귀여운 곰이 살았어요.',
+          '곰은 매일 꿀을 찾아다녔지요.',
+          '그런데 오늘은 아무리 찾아도 없었어요.',
+        ]
+      },
+      {
+        illust: '🐝',
+        sentences: [
+          '그때 꿀벌 친구가 나타났어요.',
+          '"꿀이 어디 있는지 알려줄게!" 꿀벌이 말했어요.',
+          '곰은 꿀벌을 따라 깊은 숲 속으로 들어갔어요.',
+        ]
+      },
+      {
+        illust: '🍯',
+        sentences: [
+          '커다란 나무 속에 달콤한 꿀이 가득했어요!',
+          '"우아, 정말 맛있다!" 곰이 외쳤어요.',
+          '곰과 꿀벌은 사이좋게 꿀을 나눠 먹었답니다. 끝.',
+        ]
+      }
+    ]
+  },
+  {
+    id: 4, color: 'c4',
+    emoji: '⭐', title: '별님과 달님',
+    pages: [
+      {
+        illust: '🌙',
+        sentences: [
+          '밤하늘에 달님이 혼자 빛나고 있었어요.',
+          '하지만 달님은 조금 외로웠어요.',
+          '"친구가 있으면 좋겠다." 달님이 속삭였지요.',
+        ]
+      },
+      {
+        illust: '✨',
+        sentences: [
+          '그때 작은 별 하나가 깜박깜박 나타났어요.',
+          '"달님, 나랑 같이 빛날까요?"',
+          '달님은 너무 기뻐서 더 환하게 빛났어요.',
+        ]
+      },
+      {
+        illust: '🌟',
+        sentences: [
+          '그날 밤 하늘은 어느 때보다 아름다웠어요.',
+          '아이들은 창문 너머로 하늘을 바라보았어요.',
+          '"와, 오늘 밤하늘 정말 예쁘다!" 끝.',
+        ]
+      }
+    ]
+  },
+  {
+    id: 5, color: 'c5',
+    emoji: '🦋', title: '애벌레의 꿈',
+    pages: [
+      {
+        illust: '🐛',
+        sentences: [
+          '초록 잎 위에 조그만 애벌레가 살았어요.',
+          '애벌레는 꿈이 있었어요.',
+          '"나도 언젠가 하늘을 날 거야!"',
+        ]
+      },
+      {
+        illust: '🫘',
+        sentences: [
+          '애벌레는 고치 속으로 들어갔어요.',
+          '조금 무섭고 답답했지만 참았어요.',
+          '열심히 기다리고 또 기다렸지요.',
+        ]
+      },
+      {
+        illust: '🦋',
+        sentences: [
+          '드디어 고치에서 예쁜 나비가 나왔어요!',
+          '날개를 펼치니 알록달록 무늬가 반짝였어요.',
+          '나비는 꿈꾸던 하늘을 자유롭게 날았답니다. 끝.',
+        ]
+      }
+    ]
+  }
+];
+
+let currentStory = null;
+let synth = window.speechSynthesis;
+let currentUtterance = null;
+let isReadingAll = false;
+let allSentences = [];
+let currentSentenceIdx = 0;
+let speechRate = 0.9;
+let voices = [];
+let readSet = new Set();
+
+function loadVoices() {
+  voices = synth.getVoices();
+}
+loadVoices();
+if (speechSynthesis.onvoiceschanged !== undefined) {
+  speechSynthesis.onvoiceschanged = loadVoices;
+}
+
+function getBestVoice() {
+  const koVoice = voices.find(v => v.lang.startsWith('ko'));
+  return koVoice || voices[0] || null;
+}
+
+// Build home
+function buildHome() {
+  const list = document.getElementById('story-list');
+  list.innerHTML = '';
+  STORIES.forEach(story => {
+    const card = document.createElement('div');
+    card.className = `story-card ${story.color}`;
+    card.onclick = () => openStory(story);
+    card.innerHTML = `
+      <div class="story-emoji">${story.emoji}</div>
+      <div class="story-info">
+        <div class="story-title">${story.title}</div>
+        <div class="story-preview">${story.pages[0].sentences[0]}</div>
+      </div>
+      <div class="story-arrow">›</div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function openStory(story) {
+  currentStory = story;
+  readSet = new Set();
+  stopSpeech();
+
+  document.getElementById('reader-title').textContent = story.title;
+  document.getElementById('reader-emoji').textContent = story.emoji;
+
+  const area = document.getElementById('pages-area');
+  area.innerHTML = '';
+  allSentences = [];
+
+  story.pages.forEach((page, pi) => {
+    const block = document.createElement('div');
+    block.className = 'page-block';
+    block.innerHTML = `<div class="page-num">${pi + 1} / ${story.pages.length}</div>
+      <div class="page-illust" style="animation-delay:${pi*0.3}s">${page.illust}</div>
+      <div class="sentences"></div>`;
+    const sentWrap = block.querySelector('.sentences');
+
+    page.sentences.forEach((text, si) => {
+      const idx = allSentences.length;
+      allSentences.push({ text, el: null });
+
+      const el = document.createElement('div');
+      el.className = 'sentence';
+      el.dataset.idx = idx;
+      el.textContent = text;
+      el.onclick = () => speakSentence(idx);
+      sentWrap.appendChild(el);
+      allSentences[idx].el = el;
+    });
+
+    area.appendChild(block);
+  });
+
+  document.getElementById('home-page').classList.add('hidden');
+  document.getElementById('reader-page').classList.add('show');
+  updateReadAllBtn();
+}
+
+function goHome() {
+  stopSpeech();
+  document.getElementById('reader-page').classList.remove('show');
+  document.getElementById('home-page').classList.remove('hidden');
+  currentStory = null;
+}
+
+function speakSentence(idx, fromReadAll = false) {
+  if (!fromReadAll) {
+    isReadingAll = false;
+    updateReadAllBtn();
+  }
+  synth.cancel();
+
+  const item = allSentences[idx];
+  if (!item) return;
+
+  allSentences.forEach(s => s.el.classList.remove('speaking'));
+  item.el.classList.add('speaking');
+  item.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  currentSentenceIdx = idx;
+
+  const utt = new SpeechSynthesisUtterance(item.text);
+  utt.lang = 'ko-KR';
+  utt.rate = parseFloat(speechRate);
+  utt.pitch = 1.15;
+  const voice = getBestVoice();
+  if (voice) utt.voice = voice;
+
+  utt.onend = () => {
+    item.el.classList.remove('speaking');
+    readSet.add(idx);
+    item.el.classList.add('read');
+    if (isReadingAll) {
+      const next = idx + 1;
+      if (next < allSentences.length) {
+        setTimeout(() => speakSentence(next, true), 300);
+      } else {
+        isReadingAll = false;
+        updateReadAllBtn();
+      }
+    }
+  };
+
+  utt.onerror = () => {
+    item.el.classList.remove('speaking');
+    isReadingAll = false;
+    updateReadAllBtn();
+  };
+
+  currentUtterance = utt;
+  synth.speak(utt);
+}
+
+function stopSpeech() {
+  isReadingAll = false;
+  synth.cancel();
+  if (allSentences.length) {
+    allSentences.forEach(s => s.el && s.el.classList.remove('speaking'));
+  }
+  updateReadAllBtn();
+}
+
+function toggleReadAll() {
+  if (isReadingAll) {
+    stopSpeech();
+  } else {
+    isReadingAll = true;
+    updateReadAllBtn();
+    speakSentence(0, true);
+  }
+}
+
+function updateReadAllBtn() {
+  const btn = document.getElementById('read-all-btn');
+  if (isReadingAll) {
+    btn.textContent = '■ 멈추기';
+    btn.classList.add('stop');
+  } else {
+    btn.textContent = '▶ 전체 읽기';
+    btn.classList.remove('stop');
+  }
+}
+
+function changeSpeed(delta) {
+  const slider = document.getElementById('speed-slider');
+  let val = parseFloat(slider.value) + delta;
+  val = Math.min(1.8, Math.max(0.5, Math.round(val * 10) / 10));
+  slider.value = val;
+  speechRate = val;
+  updateSpeedLabel(val);
+}
+
+function onSpeedSlider() {
+  const val = parseFloat(document.getElementById('speed-slider').value);
+  speechRate = val;
+  updateSpeedLabel(val);
+}
+
+function updateSpeedLabel(val) {
+  const labels = { 0.5:'느리게 🐢', 0.6:'느리게 🐢', 0.7:'조금 느리게', 0.8:'조금 느리게', 0.9:'보통', 1.0:'보통', 1.1:'조금 빠르게', 1.2:'조금 빠르게', 1.3:'빠르게 🐇', 1.4:'빠르게 🐇', 1.5:'아주 빠르게', 1.6:'아주 빠르게', 1.7:'매우 빠르게', 1.8:'매우 빠르게' };
+  const key = Math.round(val * 10) / 10;
+  document.getElementById('speed-label').textContent = '속도 ' + (labels[key] || '보통');
+}
+
+buildHome();
+</script>
+</body>
+</html>
