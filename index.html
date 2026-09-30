@@ -1,70 +1,3263 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>달력 앱</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LyricCatch — AI 없이, 사람이 쓰는 가사</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#FFFFFF;
+  --bg2:#F8F8F8;
+  --bg3:#F2F2F2;
+  --surface:#FFFFFF;
+  --border:#E5E5E5;
+  --border2:#CCCCCC;
+  --text:#0A0A0A;
+  --text2:#555555;
+  --text3:#999999;
+  --accent:#0A0A0A;
+  --accent-hover:#333333;
+  --green:#059669;
+  --green-light:#D1FAE5;
+  --red:#DC2626;
+  --red-light:#FEE2E2;
+  --r:4px;
+  --r2:2px;
+}
+html,body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter','Noto Sans KR',sans-serif;
+  font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── 헤더 ── */
+header{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:64px;background:#fff;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 48px;
+}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-mark{
+  width:30px;height:30px;border-radius:4px;
+  background:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;
+}
+.logo-name{font-size:16px;font-weight:800;letter-spacing:-.4px;color:var(--text);}
+.logo-name span{color:var(--text);}
+.header-right{
+  margin-left:auto;display:flex;align-items:center;
+  gap:8px;font-size:13px;color:var(--text2);
+}
+.link-btn{
+  color:var(--text);font-weight:600;cursor:pointer;
+  background:none;border:1px solid var(--border);
+  font-size:13px;font-family:inherit;
+  padding:7px 16px;border-radius:var(--r);transition:.15s;
+}
+.link-btn:hover{background:var(--text);color:#fff;border-color:var(--text);}
+
+/* ── "사람이 쓰는 가사" 배지 (헤더 전역 노출) ── */
+.human-pill{
+  display:flex;align-items:center;gap:6px;
+  margin-left:18px;
+  padding:6px 13px;border-radius:999px;
+  background:var(--text);color:#fff;
+  font-size:11px;font-weight:700;letter-spacing:.2px;
+  white-space:nowrap;
+}
+.human-pill-icon{font-size:12px;line-height:1;}
+
+/* ── 레이아웃 ── */
+.page{
+  min-height:100vh;padding-top:64px;
+  display:flex;align-items:center;justify-content:center;
+  padding:100px 24px 60px;background:var(--bg);
+}
+
+/* 회원가입 컨테이너 */
+.auth-container{
+  width:100%;max-width:960px;
+  display:grid;grid-template-columns:1fr 1fr;
+  border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;
+  box-shadow:0 8px 40px rgba(0,0,0,.06);
+}
+
+/* 왼쪽 브랜드 패널 */
+.brand-panel{
+  background:var(--text);
+  padding:56px 44px;
+  display:flex;flex-direction:column;justify-content:space-between;
+  position:relative;overflow:hidden;
+}
+.brand-panel::before{
+  content:'LYRIC';
+  position:absolute;
+  bottom:-20px;right:-10px;
+  font-size:120px;font-weight:900;
+  color:rgba(255,255,255,.04);
+  letter-spacing:-6px;
+  pointer-events:none;
+  white-space:nowrap;
+}
+.brand-badge{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid rgba(255,255,255,.15);
+  border-radius:2px;padding:5px 12px;
+  font-size:11px;font-weight:600;color:rgba(255,255,255,.6);
+  letter-spacing:.8px;text-transform:uppercase;
+  margin-bottom:32px;width:fit-content;
+}
+.brand-badge-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:#fff;animation:blink 2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+.brand-headline{
+  font-size:32px;font-weight:800;line-height:1.2;
+  letter-spacing:-1px;margin-bottom:16px;color:#fff;
+}
+.brand-headline .hl{
+  color:rgba(255,255,255,.45);
+}
+.brand-desc{font-size:13px;color:rgba(255,255,255,.5);line-height:1.8;margin-bottom:48px;}
+.brand-features{display:flex;flex-direction:column;gap:20px;}
+.feature-item{
+  display:flex;align-items:flex-start;gap:14px;
+  padding-bottom:20px;border-bottom:1px solid rgba(255,255,255,.07);
+}
+.feature-item:last-child{border-bottom:none;padding-bottom:0;}
+.feature-icon{
+  width:32px;height:32px;border-radius:3px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.1);
+}
+.feature-icon.indigo{background:rgba(255,255,255,.08);}
+.feature-icon.fuchsia{background:rgba(255,255,255,.08);}
+.feature-icon.green{background:rgba(255,255,255,.08);}
+.feature-icon.human{background:rgba(255,255,255,.08);}
+.feature-text h4{font-size:13px;font-weight:700;margin-bottom:3px;color:#fff;}
+.feature-text p{font-size:12px;color:rgba(255,255,255,.45);line-height:1.6;}
+.brand-footer{font-size:11px;color:rgba(255,255,255,.25);margin-top:40px;padding-top:20px;border-top:1px solid rgba(255,255,255,.07);}
+
+/* 좌측 상단 "100% HUMAN WRITTEN" 스탬프 */
+.human-stamp{
+  position:absolute;top:28px;right:28px;
+  width:74px;height:74px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.35);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transform:rotate(12deg);
+  color:rgba(255,255,255,.55);
+  font-size:9px;font-weight:800;letter-spacing:.4px;line-height:1.5;
+  text-align:center;
+}
+.human-stamp span:first-child{font-size:13px;}
+
+/* 오른쪽 폼 패널 */
+.form-panel{
+  padding:52px 48px;
+  display:flex;flex-direction:column;
+  background:#fff;
+}
+.form-title{
+  font-size:24px;font-weight:800;letter-spacing:-.6px;
+  margin-bottom:4px;color:var(--text);
+}
+.form-subtitle{font-size:13px;color:var(--text3);margin-bottom:32px;line-height:1.6;}
+
+/* ── 역할 선택 ── */
+.role-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px;}
+.role-card{
+  padding:16px 14px;border-radius:var(--r);cursor:pointer;
+  border:1.5px solid var(--border);background:#fff;
+  transition:.15s;display:flex;flex-direction:column;gap:8px;
+  position:relative;
+}
+.role-card:hover{border-color:var(--border2);}
+.role-card.selected-composer,.role-card.selected-lyricist{
+  border-color:var(--text);background:var(--bg2);
+}
+.role-card-check{
+  position:absolute;top:10px;right:10px;
+  width:18px;height:18px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:.15s;font-size:10px;font-weight:700;
+}
+.role-card.selected-composer .role-card-check,
+.role-card.selected-lyricist .role-card-check{
+  opacity:1;background:var(--text);color:#fff;
+}
+.role-emoji{font-size:20px;line-height:1;}
+.role-name{font-size:13px;font-weight:700;color:var(--text);}
+.role-desc{font-size:11px;color:var(--text3);line-height:1.5;}
+.role-tag{
+  font-size:10px;font-weight:600;padding:2px 7px;border-radius:2px;
+  width:fit-content;margin-top:2px;
+  background:var(--bg3);color:var(--text2);
+  border:1px solid var(--border);
+}
+.role-tag.composer-tag,.role-tag.lyricist-tag{
+  background:var(--text);color:#fff;border-color:var(--text);
+}
+.role-card.selected-composer .role-tag,
+.role-card.selected-lyricist .role-tag{
+  background:var(--text);color:#fff;
+}
+
+/* ── 폼 필드 ── */
+.form-grid{display:flex;flex-direction:column;gap:16px;margin-bottom:20px;}
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{
+  font-size:11px;font-weight:700;color:var(--text2);
+  letter-spacing:.6px;text-transform:uppercase;
+}
+.field-wrap{position:relative;}
+.field-icon{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--text3);font-size:14px;pointer-events:none;
+}
+input[type=text],input[type=email],input[type=password]{
+  width:100%;background:#fff;
+  border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text);font-size:14px;
+  padding:11px 14px 11px 36px;
+  outline:none;transition:.15s;font-family:inherit;
+}
+input:focus{border-color:var(--text);box-shadow:none;}
+input.error{border-color:var(--red)!important;}
+input.valid{border-color:#22c55e!important;}
+.field-hint{font-size:11px;color:var(--green);margin-top:3px;}
+.field-error{font-size:11px;color:var(--red);margin-top:3px;display:none;align-items:center;gap:4px;}
+.field-error.show{display:flex;}
+.pw-toggle{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--text3);cursor:pointer;
+  padding:4px;font-size:14px;line-height:1;
+}
+.pw-toggle:hover{color:var(--text);}
+
+/* 비밀번호 강도 */
+.pw-strength{margin-top:6px;}
+.pw-strength-bar{
+  height:2px;border-radius:1px;
+  background:var(--border);overflow:hidden;margin-bottom:4px;
+}
+.pw-strength-fill{height:100%;border-radius:1px;width:0%;transition:width .3s,background .3s;}
+.pw-strength-label{font-size:11px;color:var(--text3);}
+
+/* 약관 */
+.terms-check{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:14px 16px;border-radius:var(--r);
+  background:var(--bg2);border:1px solid var(--border);
+  cursor:pointer;transition:.15s;
+}
+.terms-check:hover{border-color:var(--border2);}
+.terms-check input[type=checkbox]{
+  width:15px;height:15px;flex-shrink:0;margin-top:2px;
+  accent-color:var(--text);cursor:pointer;
+}
+.terms-check p{font-size:12px;color:var(--text2);line-height:1.6;}
+.terms-check a{color:var(--text);font-weight:600;text-decoration:underline;}
+
+/* 제출 버튼 */
+.submit-btn{
+  width:100%;padding:14px;border-radius:var(--r);border:none;
+  background:var(--text);color:#fff;
+  font-size:14px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:12px;letter-spacing:.2px;
+}
+.submit-btn:hover{background:var(--accent-hover);}
+.submit-btn:active{transform:scale(.99);}
+.submit-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+.submit-btn .btn-spinner{
+  width:15px;height:15px;
+  border:2px solid rgba(255,255,255,.25);
+  border-top-color:#fff;border-radius:50%;
+  animation:spin .7s linear infinite;display:none;
+}
+.submit-btn.loading .btn-spinner{display:block;}
+.submit-btn.loading .btn-text{display:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* 로그인 링크 */
+.login-link{text-align:center;margin-top:20px;font-size:13px;color:var(--text3);}
+.login-link a{color:var(--text);font-weight:600;cursor:pointer;text-decoration:underline;}
+
+/* ── 성공 화면 ── */
+#success-screen{
+  display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:60px 44px;min-height:480px;
+}
+.success-icon{
+  width:64px;height:64px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;margin:0 auto 24px;
+}
+.success-title{font-size:22px;font-weight:800;margin-bottom:10px;letter-spacing:-.5px;}
+.success-desc{font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:8px;}
+.success-role-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:2px;
+  font-size:12px;font-weight:700;margin:12px auto 28px;
+  background:var(--text);color:#fff;letter-spacing:.3px;
+}
+.success-info-box{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 24px;text-align:left;
+  width:100%;margin-bottom:24px;
+}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;}
+.info-row+.info-row{border-top:1px solid var(--border);}
+.info-row .key{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.info-row .val{font-size:13px;font-weight:600;color:var(--text);}
+.go-btn{
+  width:100%;padding:13px;border-radius:var(--r);border:none;
+  background:var(--text);color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.go-btn:hover{background:var(--accent-hover);}
+
+/* ── 토스트 ── */
+#toast-box{position:fixed;top:76px;right:24px;z-index:500;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  background:#fff;border:1px solid var(--border);
+  border-radius:var(--r);
+  padding:13px 18px;font-size:13px;font-weight:500;
+  display:flex;align-items:center;gap:9px;
+  box-shadow:0 4px 20px rgba(0,0,0,.1);
+  transform:translateX(120%);transition:.3s cubic-bezier(.34,1.56,.64,1);
+  min-width:260px;color:var(--text);
+}
+.toast.show{transform:translateX(0);}
+.toast.success{border-left:3px solid var(--green);}
+.toast.error{border-left:3px solid var(--red);}
+.toast.info{border-left:3px solid var(--text);}
+
+/* Firebase 설정 안내 배너 */
+#firebase-notice{
+  position:fixed;top:64px;left:0;right:0;z-index:90;
+  background:#FEF2F2;border-bottom:1px solid #FECACA;
+  padding:10px 24px;text-align:center;
+  font-size:13px;color:var(--red);
+  display:none;align-items:center;justify-content:center;gap:8px;
+}
+#firebase-notice.show{display:flex;}
+#firebase-notice code{background:rgba(0,0,0,.06);padding:2px 6px;border-radius:3px;font-size:12px;}
+
+/* ── 로그인 폼 ── */
+#login-form{display:none;flex-direction:column;}
+.login-tabs{
+  display:flex;border:1px solid var(--border);
+  border-radius:var(--r);padding:3px;gap:3px;margin-bottom:24px;
+}
+.login-tab{
+  flex:1;padding:9px;border-radius:3px;border:none;
+  background:none;color:var(--text2);font-size:13px;
+  font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;
+}
+.login-tab:hover{color:var(--text);}
+.login-tab.active{background:var(--text);color:#fff;}
+.login-options{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:18px;
+}
+.remember-me{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--text2);}
+.remember-me input[type=checkbox]{width:14px;height:14px;accent-color:var(--text);cursor:pointer;}
+.forgot-link{font-size:13px;color:var(--text2);cursor:pointer;transition:.15s;}
+.forgot-link:hover{color:var(--text);text-decoration:underline;}
+.divider{display:flex;align-items:center;gap:12px;margin:18px 0;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+.divider span{font-size:12px;color:var(--text3);}
+.social-btns{display:flex;gap:8px;}
+.social-btn{
+  flex:1;padding:11px;border-radius:var(--r);
+  border:1px solid var(--border);background:#fff;
+  color:var(--text);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.social-btn:hover{border-color:var(--border2);background:var(--bg2);}
+/* 비밀번호 재설정 */
+#reset-form{display:none;flex-direction:column;}
+.back-btn{
+  background:none;border:none;color:var(--text2);font-size:13px;
+  font-family:inherit;cursor:pointer;padding:0;
+  display:flex;align-items:center;gap:5px;margin-bottom:20px;transition:.15s;
+}
+.back-btn:hover{color:var(--text);}
+/* 로그인 성공 */
+#login-success{display:none;flex-direction:column;align-items:center;text-align:center;padding:20px 0;}
+.user-info-box{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);padding:18px 24px;text-align:left;
+  width:100%;margin-bottom:20px;
+}
+.linfo-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;}
+.linfo-row+.linfo-row{border-top:1px solid var(--border);}
+.linfo-row .lkey{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;}
+.linfo-row .lval{font-size:13px;font-weight:600;}
+.role-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:2px;
+  font-size:12px;font-weight:700;
+  background:var(--text);color:#fff;
+}
+.action-btns{display:flex;gap:8px;width:100%;}
+.action-btn{
+  flex:1;padding:12px;border-radius:var(--r);
+  font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;
+}
+.action-btn.primary{background:var(--text);border:none;color:#fff;}
+.action-btn.primary:hover{background:var(--accent-hover);}
+.action-btn.secondary{background:none;border:1px solid var(--border);color:var(--text);}
+.action-btn.secondary:hover{border-color:var(--border2);background:var(--bg2);}
+/* 메인 화면 전환 버튼 */
+.auth-mode-switch{
+  display:flex;border:1px solid var(--border);border-radius:var(--r);
+  overflow:hidden;margin-bottom:32px;
+}
+.auth-mode-btn{
+  flex:1;padding:11px;border:none;background:none;
+  color:var(--text2);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.auth-mode-btn:hover{background:var(--bg2);}
+.auth-mode-btn.active{background:var(--text);color:#fff;}
+/* ── 대시보드 (음원 등록자) ── */
+#dashboard{
+  display:none;
+  position:fixed;inset:0;top:64px;
+  background:var(--bg);
+  overflow-y:auto;z-index:50;
+}
+.dash-wrap{max-width:960px;margin:0 auto;padding:40px 32px 80px;}
+.dash-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;}
+.dash-title{font-size:22px;font-weight:800;letter-spacing:-.5px;}
+.dash-user{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text2);}
+.dash-avatar-wrap{position:relative;display:inline-flex;flex-shrink:0;}
+.dash-avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--text);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;
+}
+.dash-avatar-badge{
+  position:absolute;top:-5px;right:-6px;
+  min-width:17px;height:17px;padding:0 4px;
+  border-radius:9px;background:var(--red);color:#fff;
+  font-size:10px;font-weight:800;line-height:1;
+  display:none;align-items:center;justify-content:center;
+  border:2px solid #fff;
+}
+.dash-logout{
+  background:none;border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text2);font-size:12px;padding:5px 12px;cursor:pointer;
+  font-family:inherit;transition:.15s;
+}
+.dash-logout:hover{border-color:var(--red);color:var(--red);}
+
+/* 통계 카드 */
+.dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:32px;}
+.stat-card{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:20px;background:#fff;
+}
+.stat-card-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}
+.stat-card-value{font-size:28px;font-weight:800;letter-spacing:-.5px;}
+.stat-card-sub{font-size:12px;color:var(--text2);margin-top:4px;}
+
+/* 섹션 */
+.dash-section{margin-bottom:40px;}
+.dash-section-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding-bottom:14px;border-bottom:1px solid var(--border);margin-bottom:20px;
+}
+.dash-section-title{font-size:15px;font-weight:700;}
+.human-note{font-size:11px;color:var(--text3);margin-top:4px;font-weight:500;}
+.btn-sm{
+  padding:8px 16px;border-radius:var(--r);border:none;
+  background:var(--text);color:#fff;
+  font-size:12px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:.15s;
+}
+.btn-sm:hover{background:var(--accent-hover);}
+.btn-sm.outline{background:none;border:1px solid var(--border);color:var(--text);}
+.btn-sm.outline:hover{border-color:var(--border2);background:var(--bg2);}
+
+/* 등록 음원 목록 */
+.track-list{display:flex;flex-direction:column;gap:10px;}
+.track-item{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:16px 20px;display:flex;align-items:center;gap:16px;
+  background:#fff;transition:.15s;
+}
+.track-item:hover{border-color:var(--border2);}
+.ti-icon{
+  width:44px;height:44px;border-radius:var(--r);
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;flex-shrink:0;
+}
+.ti-info{flex:1;}
+.ti-title{font-size:14px;font-weight:700;margin-bottom:3px;}
+.ti-meta{font-size:12px;color:var(--text3);}
+.ti-badge{
+  font-size:11px;font-weight:700;padding:3px 10px;
+  border-radius:2px;white-space:nowrap;
+}
+.ti-badge.open{background:#DCFCE7;color:#15803D;}
+.ti-badge.closed{background:var(--bg3);color:var(--text3);}
+.empty-state{
+  text-align:center;padding:48px 0;
+  color:var(--text3);font-size:14px;
+  border:1px dashed var(--border);border-radius:var(--r);
+}
+.empty-state .es-icon{font-size:32px;margin-bottom:12px;}
+
+/* ── 음원 등록 모달 ── */
+#track-modal{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.5);
+  align-items:center;justify-content:center;padding:20px;
+}
+#track-modal.open{display:flex;}
+.modal-box{
+  background:#fff;border-radius:8px;
+  width:100%;max-width:600px;max-height:90vh;
+  overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.15);
+}
+.modal-head{
+  padding:24px 28px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;background:#fff;z-index:1;
+}
+.modal-head h3{font-size:17px;font-weight:800;letter-spacing:-.4px;}
+.modal-x{
+  background:none;border:none;color:var(--text3);
+  font-size:20px;cursor:pointer;padding:4px;line-height:1;transition:.15s;
+}
+.modal-x:hover{color:var(--text);}
+.modal-body{padding:24px 28px;display:flex;flex-direction:column;gap:18px;}
+.modal-footer{
+  padding:20px 28px;border-top:1px solid var(--border);
+  display:flex;gap:10px;
+  position:sticky;bottom:0;background:#fff;
+}
+
+/* 모달 폼 */
+.mfield{display:flex;flex-direction:column;gap:6px;}
+.mfield label{
+  font-size:11px;font-weight:700;color:var(--text2);
+  letter-spacing:.5px;text-transform:uppercase;
+}
+.mfield label span{color:var(--red);margin-left:2px;}
+.minput{
+  width:100%;background:#fff;border:1px solid var(--border);
+  border-radius:var(--r);color:var(--text);font-size:14px;
+  padding:11px 14px;outline:none;transition:.15s;font-family:inherit;
+}
+.minput:focus{border-color:var(--text);}
+.minput.error{border-color:var(--red);}
+textarea.minput{resize:vertical;min-height:90px;line-height:1.6;}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.mhint{font-size:11px;color:var(--text3);margin-top:3px;}
+.merror{font-size:11px;color:var(--red);margin-top:3px;display:none;}
+
+/* ── AI 미사용(사람 직접 작성) 서약 체크박스 ── */
+.human-pledge{
+  display:flex;align-items:flex-start;gap:9px;
+  padding:12px 14px;border-radius:var(--r);
+  background:var(--bg2);border:1px solid var(--border);
+  cursor:pointer;font-size:12px;color:var(--text2);line-height:1.6;
+}
+.human-pledge input[type=checkbox]{
+  width:15px;height:15px;margin-top:1px;flex-shrink:0;
+  accent-color:var(--text);cursor:pointer;
+}
+.human-pledge.checked{border-color:var(--text);background:#fff;}
+.human-pledge span{font-weight:600;color:var(--text);}
+.merror.show{display:block;}
+
+/* 파일 드롭존 */
+.file-zone{
+  border:2px dashed var(--border);border-radius:var(--r);
+  padding:32px;text-align:center;cursor:pointer;transition:.2s;
+  background:var(--bg2);
+}
+.file-zone:hover,.file-zone.drag{border-color:var(--text);background:var(--bg3);}
+.fz-icon{font-size:28px;margin-bottom:10px;}
+.fz-text{font-size:14px;font-weight:600;margin-bottom:4px;}
+.fz-sub{font-size:12px;color:var(--text3);}
+.file-selected{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 16px;display:flex;align-items:center;gap:12px;
+  background:#fff;
+}
+.fs-icon{font-size:24px;}
+.fs-info{flex:1;}
+.fs-name{font-size:13px;font-weight:600;margin-bottom:2px;}
+.fs-size{font-size:11px;color:var(--text3);}
+.fs-remove{
+  background:none;border:1px solid var(--border);border-radius:var(--r);
+  color:var(--text3);font-size:12px;padding:4px 10px;cursor:pointer;transition:.15s;
+}
+.fs-remove:hover{border-color:var(--red);color:var(--red);}
+
+/* 업로드 진행 */
+.upload-progress{display:none;}
+.upload-progress.show{display:block;}
+.up-bar-wrap{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-bottom:6px;}
+.up-bar{height:100%;background:var(--text);border-radius:2px;width:0%;transition:width .3s;}
+.up-text{font-size:12px;color:var(--text2);display:flex;justify-content:space-between;}
+
+/* 에스크로 안내 */
+.escrow-box{
+  background:#F0FDF4;border:1px solid #BBF7D0;
+  border-radius:var(--r);padding:14px 16px;
+  display:flex;gap:10px;align-items:flex-start;
+}
+.escrow-box p{font-size:12px;color:#166534;line-height:1.6;}
+
+/* 제출 버튼 */
+.modal-submit{
+  flex:1;padding:13px;border-radius:var(--r);border:none;
+  background:var(--text);color:#fff;
+  font-size:14px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.modal-submit:hover{background:var(--accent-hover);}
+.modal-submit:disabled{opacity:.35;cursor:not-allowed;}
+.modal-submit .btn-spinner{
+  width:14px;height:14px;
+  border:2px solid rgba(255,255,255,.25);border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;display:none;
+}
+.modal-submit.loading .btn-spinner{display:block;}
+.modal-submit.loading .btn-text{display:none;}
+.modal-cancel{
+  padding:13px 20px;border-radius:var(--r);
+  border:1px solid var(--border);background:none;
+  color:var(--text);font-size:14px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.modal-cancel:hover{border-color:var(--border2);background:var(--bg2);}
+
+.modal-cancel:hover{border-color:var(--border2);background:var(--bg2);}
+
+/* ── 접수 가사 심사 모달 ── */
+#review-modal{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.5);
+  align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;
+}
+#review-modal.open{display:flex;}
+#sub-detail-modal{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.5);
+  align-items:flex-start;justify-content:center;
+  padding:20px;overflow-y:auto;
+}
+#sub-detail-modal.open{display:flex;}
+.review-modal-box{
+  background:#fff;border-radius:8px;
+  width:100%;max-width:720px;
+  box-shadow:0 24px 80px rgba(0,0,0,.15);
+  margin:auto;
+}
+.review-modal-head{
+  padding:20px 28px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  position:sticky;top:0;background:#fff;z-index:1;
+}
+.review-modal-head h3{font-size:17px;font-weight:800;letter-spacing:-.4px;}
+.review-track-badge{
+  display:flex;align-items:center;gap:10px;
+  padding:12px 28px;background:var(--bg2);border-bottom:1px solid var(--border);
+}
+.rtb-title{font-size:14px;font-weight:700;}
+.rtb-meta{font-size:12px;color:var(--text3);margin-top:2px;}
+.rtb-count{
+  margin-left:auto;font-size:13px;font-weight:700;
+  background:var(--text);color:#fff;
+  padding:4px 12px;border-radius:2px;white-space:nowrap;
+}
+
+/* 가사 카드 목록 */
+.lyric-cards{display:flex;flex-direction:column;gap:0;}
+.lyric-card{
+  border-bottom:1px solid var(--border);
+  padding:22px 28px;transition:.15s;
+}
+.lyric-card:last-child{border-bottom:none;}
+.lyric-card:hover{background:var(--bg2);}
+.lc-header{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.lc-num{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--text2);flex-shrink:0;
+}
+.lc-author{font-size:13px;font-weight:700;}
+.lc-date{font-size:12px;color:var(--text3);margin-left:auto;}
+.lc-status-badge{
+  font-size:11px;font-weight:700;padding:3px 9px;border-radius:2px;
+}
+.lc-status-badge.pending{background:var(--bg3);color:var(--text3);}
+.lc-status-badge.accepted{background:#DCFCE7;color:#15803D;}
+.lc-status-badge.rejected{background:#FEE2E2;color:#DC2626;}
+.lc-human-badge{
+  font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;
+  background:var(--text);color:#fff;white-space:nowrap;
+}
+
+/* 가사 내용 표시 */
+.lyric-content{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.lc-block{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.lc-block-label{
+  padding:6px 12px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:700;color:var(--text3);
+  text-transform:uppercase;letter-spacing:.4px;background:var(--bg3);
+}
+.lc-block-text{
+  padding:12px 14px;font-size:14px;color:var(--text);
+  line-height:1.8;white-space:pre-wrap;word-break:break-word;
+}
+.lc-note{
+  font-size:13px;color:var(--text2);line-height:1.7;
+  padding:10px 14px;background:#FFFBEB;
+  border:1px solid #FDE68A;border-radius:var(--r);
+}
+
+/* 채택/거절 버튼 */
+.lc-actions{display:flex;gap:8px;align-items:center;}
+.lc-accept-btn{
+  padding:8px 20px;border-radius:var(--r);border:none;
+  background:var(--text);color:#fff;
+  font-size:13px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:.15s;
+}
+.lc-accept-btn:hover{background:#059669;box-shadow:0 2px 8px rgba(5,150,105,.3);}
+.lc-accept-btn:disabled{opacity:.35;cursor:not-allowed;}
+.lc-reject-btn{
+  padding:8px 16px;border-radius:var(--r);
+  border:1px solid var(--border);background:#fff;
+  color:var(--text2);font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.lc-reject-btn:hover{border-color:var(--red);color:var(--red);}
+.lc-reject-btn:disabled{opacity:.35;cursor:not-allowed;}
+.lc-accepted-msg{
+  font-size:12px;color:#15803D;font-weight:600;
+  display:flex;align-items:center;gap:5px;
+}
+.lc-rejected-msg{font-size:12px;color:var(--red);font-weight:600;}
+
+/* 빈 상태 (접수 없음) */
+.review-empty{
+  padding:60px 28px;text-align:center;color:var(--text3);
+}
+.review-empty .es-icon{font-size:32px;margin-bottom:12px;}
+
+#lyricist-dashboard{
+  display:none;position:fixed;inset:0;top:64px;
+  background:var(--bg);overflow-y:auto;z-index:50;
+}
+.ldash-wrap{max-width:960px;margin:0 auto;padding:40px 32px 80px;}
+.ldash-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;}
+.track-browse-grid{display:flex;flex-direction:column;gap:12px;}
+.browse-card{
+  border:1px solid var(--border);border-radius:var(--r);
+  background:#fff;overflow:hidden;transition:.15s;
+}
+.browse-card:hover{border-color:var(--border2);box-shadow:0 2px 12px rgba(0,0,0,.06);}
+.browse-card-top{padding:18px 20px;display:flex;align-items:flex-start;gap:14px;}
+.bc-icon{
+  width:48px;height:48px;border-radius:var(--r);
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;flex-shrink:0;
+}
+.bc-info{flex:1;}
+.bc-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.bc-meta{font-size:12px;color:var(--text3);line-height:1.7;}
+.bc-concept{
+  font-size:13px;color:var(--text2);line-height:1.65;
+  padding:0 20px 14px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.bc-footer{
+  padding:12px 20px;border-top:1px solid var(--border);
+  background:var(--bg2);display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.bc-prize{font-size:15px;font-weight:800;color:#15803D;}
+.bc-dday{font-size:11px;font-weight:700;padding:3px 8px;border-radius:2px;}
+.bc-dday.urgent{background:#FEE2E2;color:#DC2626;}
+.bc-dday.soon{background:#FEF9C3;color:#854D0E;}
+.bc-dday.normal{background:#DCFCE7;color:#15803D;}
+.bc-entries{font-size:12px;color:var(--text3);}
+.bc-play-btn{
+  padding:7px 14px;border-radius:var(--r);
+  border:1px solid var(--border);background:#fff;
+  color:var(--text2);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.bc-play-btn:hover{border-color:var(--text);color:var(--text);}
+.bc-apply-btn{
+  padding:7px 16px;border-radius:var(--r);
+  border:none;background:var(--text);
+  color:#fff;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:.15s;
+}
+.bc-apply-btn:hover{background:var(--accent-hover);}
+.bc-apply-btn:disabled{opacity:.35;cursor:not-allowed;}
+/* 가사 응모 모달 */
+#lyric-modal{
+  display:none;position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.5);
+  align-items:center;justify-content:center;padding:20px;
+}
+#lyric-modal.open{display:flex;}
+.lyric-modal-box{
+  background:#fff;border-radius:8px;
+  width:100%;max-width:640px;max-height:90vh;
+  overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.15);
+}
+.lyric-track-info{
+  padding:16px 28px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex;gap:14px;align-items:center;
+}
+.lti-icon{
+  width:44px;height:44px;border-radius:var(--r);
+  background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
+}
+.lti-title{font-size:14px;font-weight:700;margin-bottom:3px;}
+.lti-meta{font-size:12px;color:var(--text3);}
+.lti-prize{margin-left:auto;font-size:16px;font-weight:800;color:#15803D;white-space:nowrap;}
+.lyric-section{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.lyric-section-head{
+  padding:9px 14px;background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:700;color:var(--text2);
+}
+.lyric-section textarea{
+  width:100%;background:#fff;border:none;
+  color:var(--text);font-size:14px;
+  padding:12px 14px;outline:none;
+  resize:vertical;min-height:90px;
+  font-family:inherit;line-height:1.8;
+}
+.lyric-section textarea:focus{background:#FAFAFA;}
+.lyric-submitted{
+  display:none;flex-direction:column;
+  align-items:center;text-align:center;padding:48px 28px;
+}
+.ls-check{
+  width:60px;height:60px;border-radius:50%;
+  background:#DCFCE7;border:1px solid #BBF7D0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;margin:0 auto 20px;
+}
+.my-submissions{display:flex;flex-direction:column;gap:10px;}
+.sub-item{
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:14px 18px;background:#fff;display:flex;align-items:flex-start;gap:12px;
+}
+.sub-item-info{flex:1;}
+.sub-item-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+.sub-item-meta{font-size:12px;color:var(--text3);}
+.sub-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:2px;white-space:nowrap;}
+.sub-status.pending{background:var(--bg3);color:var(--text3);}
+.sub-status.accepted{background:#DCFCE7;color:#15803D;}
+.sub-status.rejected{background:#FEE2E2;color:#DC2626;}
+
+@media(max-width:600px){
+  .dash-stats{grid-template-columns:1fr;}
+  .mrow{grid-template-columns:1fr;}
+  .dash-wrap{padding:24px 16px 60px;}
+  .modal-body,.modal-head,.modal-footer{padding-left:20px;padding-right:20px;}
+  .human-pill{display:none;}
+}
+@media(max-width:860px){
+  .auth-container{grid-template-columns:1fr;}
+  .brand-panel{display:none;}
+  .form-panel{padding:36px 28px;}
+  .page{padding:84px 16px 32px;}
+}
+@media(max-width:400px){
+  .role-selector{grid-template-columns:1fr;}
+}
+</style>
+
 </head>
 <body>
-  <main class="app">
-    <header class="toolbar">
-      <button id="prevMonth" aria-label="이전 달">◀</button>
-      <h1 id="monthLabel"></h1>
-      <button id="nextMonth" aria-label="다음 달">▶</button>
-    </header>
 
-    <div class="sub-toolbar">
-      <button id="todayButton">오늘로 이동</button>
-      <button id="monthlyReviewButton">월말 모아보기</button>
+<!-- Firebase 설정 안내 배너 -->
+<div id="firebase-notice">
+  ⚠️ Firebase 연결 오류가 발생했습니다. 브라우저 콘솔(F12)에서 오류 내용을 확인해주세요.
+</div>
+
+<!-- 로그인 상태 확인 중 로딩 화면 (새로고침 시 화면 깜빡임/전환 방지) -->
+<div id="auth-check-loading" style="position:fixed;inset:0;z-index:9999;background:#fff;display:flex;align-items:center;justify-content:center;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text3);font-size:13px;">
+    <div style="width:22px;height:22px;border-radius:50%;border:2.5px solid var(--border);border-top-color:var(--text);animation:authspin .7s linear infinite;"></div>
+    <div>불러오는 중...</div>
+  </div>
+</div>
+<style>@keyframes authspin{to{transform:rotate(360deg);}}</style>
+
+<!-- 헤더 -->
+<header>
+  <a class="logo" href="#">
+    <div class="logo-mark">🎵</div>
+    <span class="logo-name"><span>Lyric</span>Catch</span>
+  </a>
+  <div class="human-pill" title="LyricCatch의 모든 가사는 AI가 아닌 실제 작사가가 직접 씁니다">
+    <span class="human-pill-icon">✋</span> NO AI · 사람이 쓰는 가사
+  </div>
+  <div class="header-right">
+    이미 계정이 있으신가요?
+    <button class="link-btn" onclick="goToLogin()">로그인 →</button>
+  </div>
+</header>
+
+<!-- 메인 페이지 -->
+<div class="page" style="display:none;">
+  <div class="auth-container">
+
+    <!-- 왼쪽: 브랜드 패널 -->
+    <div class="brand-panel">
+      <div class="human-stamp" aria-hidden="true">
+        <span>100%</span>
+        <span>HUMAN</span>
+        <span>WRITTEN</span>
+      </div>
+      <div>
+        <div class="brand-badge"><span class="brand-badge-dot"></span> 🚫🤖 NO AI · 사람이 쓰는 가사</div>
+        <h2 class="brand-headline">AI가 아닌<br/><span class="hl">사람의 손끝에서 나온 가사</span></h2>
+        <p class="brand-desc">LyricCatch의 모든 가사는 AI가 아닌 실제 작사가가 한 줄 한 줄 직접 씁니다.<br/>당신의 음원엔, 당신의 마음을 이해하는 사람의 언어가 필요하니까요.</p>
+        <div class="brand-features">
+          <div class="feature-item">
+            <div class="feature-icon indigo">🎵</div>
+            <div class="feature-text">
+              <h4>음원 등록자</h4>
+              <p>음원을 올리고 공모 상금을 설정해 전국의 작사가로부터 가사를 받으세요.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon fuchsia">✍️</div>
+            <div class="feature-text">
+              <h4>작사가</h4>
+              <p>공모 음원을 듣고 가사를 써서 채택되면 상금을 받습니다.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon human">✋</div>
+            <div class="feature-text">
+              <h4>사람이 직접 쓰는 가사, 원칙입니다</h4>
+              <p>모든 응모작은 실제 작사가가 직접 작성했다는 서약을 거쳐 제출됩니다. AI 생성 가사는 받지 않습니다.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon green">🔒</div>
+            <div class="feature-text">
+              <h4>에스크로 안전 정산</h4>
+              <p>상금은 에스크로로 사전 예치. 채택 즉시 자동 정산됩니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="brand-footer">© 2026 LyricCatch. 사람이 쓰는 가사를 지킵니다.</div>
     </div>
 
-    <section class="calendar" aria-label="월간 달력">
-      <div class="weekday">일</div>
-      <div class="weekday">월</div>
-      <div class="weekday">화</div>
-      <div class="weekday">수</div>
-      <div class="weekday">목</div>
-      <div class="weekday">금</div>
-      <div class="weekday">토</div>
-      <div id="calendarDays" class="days"></div>
-    </section>
+    <!-- 오른쪽: 회원가입 폼 -->
+    <div class="form-panel">
+      <!-- 회원가입 / 로그인 모드 전환 탭 -->
+      <div class="auth-mode-switch" id="auth-mode-switch">
+        <button class="auth-mode-btn active" id="mode-signup" onclick="switchMode('signup')">회원가입</button>
+        <button class="auth-mode-btn" id="mode-login" onclick="switchMode('login')">로그인</button>
+      </div>
 
-    <section id="monthlyReviewPanel" class="review-panel hidden" aria-live="polite">
-      <h2 id="reviewTitle">이번 달 칭찬 모아보기</h2>
-      <ul id="reviewList"></ul>
-    </section>
+      <!-- 가입 폼 -->
+      <div id="signup-form">
+        <h1 class="form-title">회원가입</h1>
+        <p class="form-subtitle">LyricCatch에 오신 걸 환영합니다. 먼저 역할을 선택해주세요.</p>
 
-    <section class="month-total-panel" aria-live="polite">
-      <strong id="monthMoodTotalLabel">이달 기분점수 총합: 0점</strong>
-    </section>
-  </main>
+        <!-- 역할 선택 -->
+        <div class="role-selector">
+          <div class="role-card" id="card-composer" onclick="selectRole('composer')">
+            <div class="role-card-check">✓</div>
+            <div class="role-emoji">🎵</div>
+            <div class="role-name">음원 등록자</div>
+            <div class="role-desc">음원을 올리고 가사를 공모하는 작곡가·프로듀서</div>
+            <div class="role-tag composer-tag">음원 등록</div>
+          </div>
+          <div class="role-card" id="card-lyricist" onclick="selectRole('lyricist')">
+            <div class="role-card-check">✓</div>
+            <div class="role-emoji">✍️</div>
+            <div class="role-name">작사가</div>
+            <div class="role-desc">공모 음원을 듣고 가사를 써서 상금을 받는 작사가 · AI 없이 직접 씁니다</div>
+            <div class="role-tag lyricist-tag">가사 응모</div>
+          </div>
+        </div>
+        <div class="field-error" id="role-error" style="margin:-16px 0 16px;"><span>⚠</span> 역할을 선택해주세요</div>
 
-  <div id="entryModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
-    <div class="modal-content">
-      <h2 id="entryTitle">오늘의 나를 칭찬해요</h2>
-      <p id="entryDateLabel" class="entry-date"></p>
+        <!-- 입력 필드 -->
+        <div class="form-grid">
+          <!-- 아이디 -->
+          <div class="field">
+            <label>아이디</label>
+            <div class="field-wrap">
+              <span class="field-icon">@</span>
+              <input type="text" id="uid" placeholder="영문·숫자 4~20자"
+                oninput="validateId()" autocomplete="username"/>
+            </div>
+            <div class="field-error" id="uid-error"><span>⚠</span> <span id="uid-error-msg"></span></div>
+            <div class="field-hint" id="uid-hint"></div>
+          </div>
 
-      <label for="praiseInput">자기칭찬 한 줄</label>
-      <textarea id="praiseInput" maxlength="120" placeholder="예: 피곤했지만 끝까지 해냈다."></textarea>
+          <!-- 이메일 -->
+          <div class="field">
+            <label>이메일</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input type="email" id="email" placeholder="example@email.com"
+                oninput="validateEmail()" autocomplete="email"/>
+            </div>
+            <div class="field-error" id="email-error"><span>⚠</span> <span id="email-error-msg"></span></div>
+          </div>
 
-      <label for="moodInput">기분 점수 (1~5)</label>
-      <select id="moodInput">
-        <option value="1">1점</option>
-        <option value="2">2점</option>
-        <option value="3">3점</option>
-        <option value="4">4점</option>
-        <option value="5">5점</option>
-      </select>
+          <!-- 비밀번호 -->
+          <div class="field">
+            <label>비밀번호</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔑</span>
+              <input type="password" id="pw" placeholder="8자 이상, 영문+숫자 조합 권장"
+                oninput="validatePw()" autocomplete="new-password"/>
+              <button class="pw-toggle" type="button" onclick="togglePw('pw',this)">👁</button>
+            </div>
+            <div class="pw-strength">
+              <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-fill"></div></div>
+              <div class="pw-strength-label" id="pw-label">비밀번호를 입력하세요</div>
+            </div>
+            <div class="field-error" id="pw-error"><span>⚠</span> <span id="pw-error-msg"></span></div>
+          </div>
 
-      <div class="modal-actions">
-        <button id="deleteEntryButton" type="button">기록 지우기</button>
-        <button id="closeModalButton" type="button">취소</button>
-        <button id="saveEntryButton" type="button">저장</button>
+          <!-- 비밀번호 확인 -->
+          <div class="field">
+            <label>비밀번호 확인</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔑</span>
+              <input type="password" id="pw2" placeholder="비밀번호를 다시 입력하세요"
+                oninput="validatePw2()" autocomplete="new-password"/>
+              <button class="pw-toggle" type="button" onclick="togglePw('pw2',this)">👁</button>
+            </div>
+            <div class="field-error" id="pw2-error"><span>⚠</span> 비밀번호가 일치하지 않습니다</div>
+          </div>
+        </div>
+
+        <!-- 약관 동의 -->
+        <label class="terms-check">
+          <input type="checkbox" id="terms"/>
+          <p>LyricCatch <a href="#" onclick="return false">이용약관</a> 및 <a href="#" onclick="return false">개인정보처리방침</a>에 동의합니다. 채택 시 저작권 양도 표준약관이 적용됩니다.</p>
+        </label>
+        <div class="field-error" id="terms-error" style="margin-top:6px;"><span>⚠</span> 약관에 동의해주세요</div>
+
+        <!-- 제출 버튼 -->
+        <button class="submit-btn" id="submit-btn" onclick="doSignup()">
+          <div class="btn-spinner"></div>
+          <span class="btn-text">가입하기</span>
+        </button>
+
+        <div class="login-link">이미 계정이 있으신가요? <a onclick="switchMode('login')">로그인</a></div>
+      </div>
+
+      <!-- 가입 완료 화면 -->
+      <div id="success-screen">
+        <div class="success-icon">🎉</div>
+        <h2 class="success-title">가입을 환영합니다!</h2>
+        <p class="success-desc">LyricCatch 회원이 되셨습니다.<br/>이메일 인증 후 모든 기능을 사용할 수 있습니다.</p>
+        <div class="success-role-badge" id="success-role-badge"></div>
+        <div class="success-info-box" id="success-info-box"></div>
+        <p style="font-size:12px;color:var(--text3);margin-bottom:20px;">
+          📧 <strong id="success-email"></strong>으로 인증 메일을 발송했습니다. 메일함을 확인해주세요.
+        </p>
+        <button class="go-btn" onclick="switchMode('login')">로그인하러 가기 →</button>
+      </div>
+
+      <!-- ── 로그인 폼 ── -->
+      <div id="login-form">
+        <p class="form-subtitle" style="margin-bottom:24px;">LyricCatch 계정으로 로그인하세요.</p>
+        <div class="login-tabs">
+          <button class="login-tab active" id="tab-email" onclick="switchLoginTab('email')">이메일로 로그인</button>
+          <button class="login-tab" id="tab-uid" onclick="switchLoginTab('uid')">아이디로 로그인</button>
+        </div>
+        <div class="form-grid">
+          <div class="field" id="lfield-email">
+            <label>이메일</label>
+            <div class="field-wrap">
+              <span class="field-icon">✉</span>
+              <input type="email" id="l-email" placeholder="example@email.com"
+                oninput="lClearErr('email')"
+                onkeydown="if(event.key==='Enter')document.getElementById('l-pw').focus()"
+                autocomplete="email"/>
+            </div>
+            <div class="field-error" id="lerr-email"><span>⚠</span> <span id="lerr-email-msg"></span></div>
+          </div>
+          <div class="field" id="lfield-uid" style="display:none;">
+            <label>아이디</label>
+            <div class="field-wrap">
+              <span class="field-icon">@</span>
+              <input type="text" id="l-uid" placeholder="가입 시 설정한 아이디"
+                oninput="lClearErr('uid')"
+                onkeydown="if(event.key==='Enter')document.getElementById('l-pw').focus()"
+                autocomplete="username"/>
+            </div>
+            <div class="field-error" id="lerr-uid"><span>⚠</span> <span id="lerr-uid-msg"></span></div>
+          </div>
+          <div class="field">
+            <label>비밀번호</label>
+            <div class="field-wrap">
+              <span class="field-icon">🔑</span>
+              <input type="password" id="l-pw" placeholder="비밀번호 입력"
+                oninput="lClearErr('pw')"
+                onkeydown="if(event.key==='Enter')doLogin()"
+                autocomplete="current-password"/>
+              <button class="pw-toggle" type="button" onclick="toggleLoginPw()">👁</button>
+            </div>
+            <div class="field-error" id="lerr-pw"><span>⚠</span> <span id="lerr-pw-msg"></span></div>
+          </div>
+        </div>
+        <div class="login-options">
+          <label class="remember-me">
+            <input type="checkbox" id="remember-me"/> 로그인 상태 유지
+          </label>
+          <span class="forgot-link" onclick="showResetForm()">비밀번호 찾기</span>
+        </div>
+        <button class="submit-btn" id="login-btn" onclick="doLogin()">
+          <div class="btn-spinner"></div>
+          <span class="btn-text">로그인</span>
+        </button>
+        <div class="divider"><span>또는</span></div>
+        <div class="social-btns">
+          <button class="social-btn" onclick="googleLogin()"><span>G</span> Google</button>
+        </div>
+      </div>
+
+      <!-- ── 비밀번호 재설정 폼 ── -->
+      <div id="reset-form">
+        <button class="back-btn" onclick="showLoginForm()">← 로그인으로 돌아가기</button>
+        <h2 class="form-title" style="margin-bottom:4px;">비밀번호 재설정</h2>
+        <p class="form-subtitle" style="margin-bottom:24px;">가입한 이메일로 재설정 링크를 보내드립니다.</p>
+        <div class="field" style="margin-bottom:18px;">
+          <label>이메일</label>
+          <div class="field-wrap">
+            <span class="field-icon">✉</span>
+            <input type="email" id="reset-email" placeholder="example@email.com"
+              onkeydown="if(event.key==='Enter')doReset()"/>
+          </div>
+          <div class="field-error" id="lerr-reset"><span>⚠</span> <span id="lerr-reset-msg"></span></div>
+        </div>
+        <button class="submit-btn" id="reset-btn" onclick="doReset()">
+          <div class="btn-spinner"></div>
+          <span class="btn-text">재설정 메일 발송</span>
+        </button>
+      </div>
+
+      <!-- ── 로그인 성공 화면 ── -->
+      <div id="login-success">
+        <div class="success-icon" style="margin-bottom:20px;">✅</div>
+        <h2 class="success-title" id="ls-title" style="margin-bottom:8px;"></h2>
+        <p class="success-desc" style="margin-bottom:20px;font-size:13px;color:var(--text2);" id="ls-desc"></p>
+        <div class="user-info-box" id="ls-info"></div>
+        <div class="action-btns">
+          <button class="action-btn primary" onclick="goDashboard()">대시보드로 이동 →</button>
+          <button class="action-btn secondary" onclick="doLogout()">로그아웃</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- 토스트 -->
+<!-- ── 음원 등록자 대시보드 ── -->
+<div id="dashboard">
+  <div class="dash-wrap">
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">🎵 음원 등록자 대시보드</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px;" id="dash-greeting"></div>
+      </div>
+      <div class="dash-user">
+        <div class="dash-avatar-wrap" title="응모받은 가사 건수">
+          <div class="dash-avatar" id="dash-avatar">?</div>
+          <span class="dash-avatar-badge" id="dash-avatar-badge">0</span>
+        </div>
+        <span id="dash-username"></span>
+        <button class="dash-logout" onclick="doLogout()">로그아웃</button>
+      </div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="dash-stats">
+      <div class="stat-card">
+        <div class="stat-card-label">등록 음원</div>
+        <div class="stat-card-value" id="stat-tracks">0</div>
+        <div class="stat-card-sub">개의 공모 진행 중</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">총 응모 가사</div>
+        <div class="stat-card-value" id="stat-entries">0</div>
+        <div class="stat-card-sub">건 접수됨</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">설정 총 상금</div>
+        <div class="stat-card-value" id="stat-prize">₩0</div>
+        <div class="stat-card-sub">에스크로 예치</div>
+      </div>
+    </div>
+
+    <!-- 등록 음원 목록 -->
+    <div class="dash-section">
+      <div class="dash-section-header">
+        <div>
+          <div class="dash-section-title">내 공모 음원</div>
+          <div class="human-note">✋ 응모되는 모든 가사는 AI가 아닌 사람이 직접 작성한 것만 접수됩니다</div>
+        </div>
+        <button class="btn-sm" onclick="openTrackModal()">+ 음원 등록</button>
+      </div>
+      <div class="track-list" id="track-list">
+        <div class="empty-state">
+          <div class="es-icon">🎵</div>
+          <div>등록된 음원이 없습니다.<br/>첫 번째 음원을 등록해보세요!</div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <script src="script.js"></script>
+<!-- ── 음원 등록 모달 ── -->
+<div id="track-modal" onclick="if(event.target===this)closeTrackModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>음원 등록 및 공모 개설</h3>
+      <button class="modal-x" onclick="closeTrackModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- 음원 파일 업로드 -->
+      <div class="mfield">
+        <label>음원 파일 <span>*</span></label>
+        <input type="file" id="track-file" accept=".mp3,.wav,audio/*" style="display:none"
+          onchange="onFileSelected(this)"/>
+        <div class="file-zone" id="file-zone"
+          onclick="document.getElementById('track-file').click()"
+          ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+          <div class="fz-icon">🎵</div>
+          <div class="fz-text">클릭하거나 파일을 드래그하세요</div>
+          <div class="fz-sub">MP3, WAV · 최대 100MB</div>
+        </div>
+        <div class="file-selected" id="file-selected" style="display:none;">
+          <div class="fs-icon">🎵</div>
+          <div class="fs-info">
+            <div class="fs-name" id="fs-name"></div>
+            <div class="fs-size" id="fs-size"></div>
+          </div>
+          <button class="fs-remove" onclick="removeFile()">제거</button>
+        </div>
+        <div class="merror" id="merr-file">음원 파일을 선택해주세요</div>
+        <!-- 업로드 진행 표시 -->
+        <div class="upload-progress" id="upload-progress">
+          <div class="up-bar-wrap"><div class="up-bar" id="up-bar"></div></div>
+          <div class="up-text">
+            <span id="up-status">업로드 중...</span>
+            <span id="up-pct">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 곡 제목 / 아티스트 -->
+      <div class="mrow">
+        <div class="mfield">
+          <label>곡 제목 <span>*</span></label>
+          <input class="minput" type="text" id="t-title" placeholder="예: Summer Breeze"
+            oninput="mClearErr('title')"/>
+          <div class="merror" id="merr-title">곡 제목을 입력해주세요</div>
+        </div>
+        <div class="mfield">
+          <label>아티스트명</label>
+          <input class="minput" type="text" id="t-artist" placeholder="예: NOVA Studio"/>
+        </div>
+      </div>
+
+      <!-- 장르 / BPM -->
+      <div class="mrow">
+        <div class="mfield">
+          <label>장르 <span>*</span></label>
+          <select class="minput" id="t-genre" oninput="mClearErr('genre')">
+            <option value="">장르 선택</option>
+            <option>K-POP</option>
+            <option>발라드</option>
+            <option>R&B</option>
+            <option>힙합</option>
+            <option>인디</option>
+            <option>OST</option>
+            <option>트로트</option>
+            <option>기타</option>
+          </select>
+          <div class="merror" id="merr-genre">장르를 선택해주세요</div>
+        </div>
+        <div class="mfield">
+          <label>BPM</label>
+          <input class="minput" type="number" id="t-bpm" placeholder="예: 128" min="40" max="300"/>
+        </div>
+      </div>
+
+      <!-- 공모 기간 / 상금 -->
+      <div class="mrow">
+        <div class="mfield">
+          <label>공모 기간 <span>*</span></label>
+          <select class="minput" id="t-period">
+            <option value="7">7일</option>
+            <option value="14" selected>14일</option>
+            <option value="30">30일</option>
+          </select>
+        </div>
+        <div class="mfield">
+          <label>채택 상금 (원) <span>*</span></label>
+          <input class="minput" type="number" id="t-prize" placeholder="최소 50,000원"
+            min="50000" step="10000"
+            oninput="updatePrizePreview();mClearErr('prize')"/>
+          <div class="mhint" id="prize-preview"></div>
+          <div class="merror" id="merr-prize">상금을 입력해주세요 (최소 50,000원)</div>
+        </div>
+      </div>
+
+      <!-- 콘셉트 설명 -->
+      <div class="mfield">
+        <label>콘셉트 / 원하는 가사 설명 <span>*</span></label>
+        <textarea class="minput" id="t-concept"
+          placeholder="원하는 가사의 분위기, 주제, 스토리 등을 자세히 적어주세요. 작사가들이 이 설명을 보고 가사를 씁니다."
+          oninput="mClearErr('concept')"></textarea>
+        <div class="merror" id="merr-concept">콘셉트 설명을 입력해주세요</div>
+      </div>
+
+      <!-- 가이드 가사 -->
+      <div class="mfield">
+        <label>가이드 가사 <span style="color:var(--text3);font-weight:400;">(선택)</span></label>
+        <textarea class="minput" id="t-guide"
+          placeholder="참고용 가이드 가사가 있다면 입력하세요..."
+          style="min-height:70px;"></textarea>
+      </div>
+
+      <!-- 에스크로 안내 -->
+      <div class="escrow-box">
+        <span style="font-size:18px;">🔒</span>
+        <p>상금은 공모 등록 시 에스크로로 안전하게 예치됩니다. 가사를 채택하기 전까지 인출되지 않으며, 채택 완료 시 자동으로 작사가에게 정산됩니다. 플랫폼 수수료 15%가 차감됩니다.</p>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel" onclick="closeTrackModal()">취소</button>
+      <button class="modal-submit" id="track-submit-btn" onclick="submitTrack()">
+        <div class="btn-spinner"></div>
+        <span class="btn-text">음원 등록하기</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 작사가 대시보드 ── -->
+<div id="lyricist-dashboard">
+  <div class="ldash-wrap">
+    <div class="ldash-header">
+      <div>
+        <div class="dash-title">✍️ 작사가 대시보드</div>
+        <div style="font-size:13px;color:var(--text2);margin-top:4px;" id="ldash-greeting"></div>
+      </div>
+      <div class="dash-user">
+        <div class="dash-avatar-wrap" title="채택(선정)된 가사 건수">
+          <div class="dash-avatar" id="ldash-avatar">?</div>
+          <span class="dash-avatar-badge" id="ldash-avatar-badge">0</span>
+        </div>
+        <span id="ldash-username"></span>
+        <button class="dash-logout" onclick="doLogout()">로그아웃</button>
+      </div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="dash-stats" style="margin-bottom:32px;">
+      <div class="stat-card">
+        <div class="stat-card-label">응모한 가사</div>
+        <div class="stat-card-value" id="lstat-submitted">0</div>
+        <div class="stat-card-sub">건 제출</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">채택된 가사</div>
+        <div class="stat-card-value" id="lstat-accepted">0</div>
+        <div class="stat-card-sub">건 채택</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">총 수입</div>
+        <div class="stat-card-value" id="lstat-earned">₩0</div>
+        <div class="stat-card-sub">에스크로 정산</div>
+      </div>
+    </div>
+
+    <!-- 탭: 공모 음원 목록 / 내 응모 내역 -->
+    <div class="human-note" style="margin-bottom:10px;">✋ LyricCatch는 AI가 아닌 사람이 직접 쓴 가사만 응모·채택합니다</div>
+    <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:24px;">
+      <button class="ldash-tab active" id="ltab-browse" onclick="switchLTab('browse')"
+        style="padding:10px 20px;border:none;background:none;font-size:14px;font-weight:600;
+        cursor:pointer;font-family:inherit;color:var(--text);
+        border-bottom:2px solid var(--text);margin-bottom:-1px;">
+        공모 음원 탐색
+      </button>
+      <button class="ldash-tab" id="ltab-mine" onclick="switchLTab('mine')"
+        style="padding:10px 20px;border:none;background:none;font-size:14px;font-weight:600;
+        cursor:pointer;font-family:inherit;color:var(--text2);
+        border-bottom:2px solid transparent;margin-bottom:-1px;">
+        내 응모 내역
+      </button>
+    </div>
+
+    <!-- 공모 음원 목록 -->
+    <div id="ltab-browse-pane">
+      <div class="track-browse-grid" id="browse-list">
+        <div class="empty-state"><div class="es-icon">⏳</div><div>음원 목록을 불러오는 중...</div></div>
+      </div>
+    </div>
+
+    <!-- 내 응모 내역 -->
+    <div id="ltab-mine-pane" style="display:none;">
+      <div class="my-submissions" id="my-submission-list">
+        <div class="empty-state"><div class="es-icon">✍️</div><div>아직 응모한 가사가 없습니다.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 가사 응모 모달 ── -->
+<div id="lyric-modal" onclick="if(event.target===this)closeLyricModal()">
+  <div class="lyric-modal-box">
+    <!-- 음원 정보 -->
+    <div class="lyric-track-info">
+      <div class="lti-icon">🎵</div>
+      <div>
+        <div class="lti-title" id="lm-track-title"></div>
+        <div class="lti-meta" id="lm-track-meta"></div>
+      </div>
+      <div class="lti-prize" id="lm-track-prize"></div>
+    </div>
+    <!-- 헤더 -->
+    <div class="modal-head">
+      <h3>가사 응모</h3>
+      <button class="modal-x" onclick="closeLyricModal()">✕</button>
+    </div>
+
+    <!-- 가사 입력 폼 -->
+    <div id="lyric-form-area">
+      <div class="modal-body" style="gap:12px;">
+        <!-- 콘셉트 요약 -->
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">📋 의뢰자 콘셉트</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7;" id="lm-concept"></div>
+        </div>
+
+        <div style="font-size:12px;color:var(--text3);">
+          아래 각 파트에 가사를 작성하세요. 모든 파트를 채울 필요는 없습니다.
+        </div>
+
+        <div class="lyric-section">
+          <div class="lyric-section-head">🎵 Verse 1 (절)</div>
+          <textarea id="ly-verse1" placeholder="첫 번째 절 가사를 입력하세요..."></textarea>
+        </div>
+        <div class="lyric-section">
+          <div class="lyric-section-head">🎶 Chorus (후렴)</div>
+          <textarea id="ly-chorus" placeholder="후렴 가사를 입력하세요..."></textarea>
+        </div>
+        <div class="lyric-section">
+          <div class="lyric-section-head">🎵 Verse 2 (절)</div>
+          <textarea id="ly-verse2" placeholder="두 번째 절 가사를 입력하세요..."></textarea>
+        </div>
+        <div class="lyric-section">
+          <div class="lyric-section-head">🌉 Bridge (브릿지)</div>
+          <textarea id="ly-bridge" placeholder="브릿지 가사를 입력하세요 (선택)..." style="min-height:70px;"></textarea>
+        </div>
+        <div class="mfield">
+          <label>작사 의도 / 설명 <span style="color:var(--text3);font-weight:400;">(선택)</span></label>
+          <textarea class="minput" id="ly-note" placeholder="가사의 의도나 분위기를 설명해주세요..." style="min-height:60px;"></textarea>
+        </div>
+
+        <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:var(--r);padding:12px 16px;font-size:12px;color:#166534;line-height:1.6;">
+          🔒 제출된 가사는 음원 등록자만 열람 가능합니다. 채택 시 저작권이 의뢰자에게 양도됩니다.
+        </div>
+        <label class="human-pledge" id="ly-pledge-label">
+          <input type="checkbox" id="ly-human-pledge" onchange="document.getElementById('ly-pledge-label').classList.toggle('checked', this.checked); document.getElementById('ly-pledge-error').style.display='none';"/>
+          <span>✋ 본인은 AI(생성형 인공지능)의 도움 없이 이 가사를 직접 작성했음을 서약합니다.</span>
+        </label>
+        <div class="merror" id="ly-pledge-error" style="font-size:13px;">⚠ AI 미사용 서약에 동의해야 응모할 수 있습니다.</div>
+        <div class="merror" id="ly-error" style="font-size:13px;">⚠ 최소 하나의 파트(절 또는 후렴)에 가사를 입력해주세요.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-cancel" onclick="closeLyricModal()">취소</button>
+        <button class="modal-submit" id="lyric-submit-btn" onclick="submitLyric()">
+          <div class="btn-spinner"></div>
+          <span class="btn-text">가사 응모하기</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 응모 완료 화면 -->
+    <div class="lyric-submitted" id="lyric-submitted">
+      <div class="ls-check">✅</div>
+      <h3 style="font-size:18px;font-weight:800;margin-bottom:8px;">응모 완료!</h3>
+      <p style="font-size:14px;color:var(--text2);line-height:1.75;margin-bottom:24px;">
+        가사가 성공적으로 제출되었습니다.<br/>음원 등록자가 검토 후 채택 여부를 결정합니다.
+      </p>
+      <button class="btn-sm" onclick="closeLyricModal()">목록으로 돌아가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 가사 심사 모달 ── -->
+<div id="review-modal" onclick="if(event.target===this)closeReviewModal()">
+  <div class="review-modal-box">
+    <div class="review-modal-head">
+      <h3>📋 접수된 가사 심사</h3>
+      <button class="modal-x" onclick="closeReviewModal()">✕</button>
+    </div>
+    <!-- 트랙 정보 -->
+    <div class="review-track-badge">
+      <div>
+        <div class="rtb-title" id="rv-track-title"></div>
+        <div class="rtb-meta" id="rv-track-meta"></div>
+      </div>
+      <div class="rtb-count" id="rv-count">0건</div>
+    </div>
+    <!-- 가사 목록 -->
+    <div class="lyric-cards" id="rv-lyric-list">
+      <div class="review-empty">
+        <div class="es-icon">⏳</div>
+        <div>불러오는 중...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 작사가: 내 응모 가사 상세보기 모달 -->
+<div id="sub-detail-modal" onclick="if(event.target===this)closeSubDetailModal()">
+  <div class="review-modal-box">
+    <div class="review-modal-head">
+      <h3>✍️ 내 응모 상세</h3>
+      <button class="modal-x" onclick="closeSubDetailModal()">✕</button>
+    </div>
+    <!-- 트랙 정보 -->
+    <div class="review-track-badge">
+      <div>
+        <div class="rtb-title" id="sd-track-title"></div>
+        <div class="rtb-meta" id="sd-track-meta"></div>
+      </div>
+      <span class="sub-status pending" id="sd-status" style="margin-left:auto;">심사중</span>
+    </div>
+    <!-- 가사 내용 -->
+    <div style="padding:22px 28px;">
+      <div class="lyric-content" id="sd-lyric-content" style="margin-bottom:0;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-box"></div>
+
+<script>
+// ════════════════════════════════════════
+// ▶ Firebase 설정
+// ▶ Firebase Console에서 프로젝트 생성 후
+//   아래 YOUR_*** 값을 교체하세요
+// ════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyBjYb0BIPtVu6mSdgNJz2t3oj83JxvICC4",
+  authDomain:        "lyric-56f57.firebaseapp.com",
+  databaseURL:       "https://lyric-56f57-default-rtdb.firebaseio.com",
+  projectId:         "lyric-56f57",
+  storageBucket:     "lyric-56f57.firebasestorage.app",
+  messagingSenderId: "669273100145",
+  appId:             "1:669273100145:web:20d2f1aace8d51ab06b0d0",
+  measurementId:     "G-DHPNL624Z6"
+};
+
+// Firebase 초기화 및 설정 확인
+let firebaseReady = false;
+let fbAuth = null;
+let fbDb   = null;   // Firestore
+let fbRtdb = null;   // Realtime Database
+
+(function initFirebase(){
+  try{
+    firebase.initializeApp(firebaseConfig);
+    fbAuth = firebase.auth();
+    fbDb   = firebase.firestore();
+    fbRtdb = firebase.database();
+    fbAuth.languageCode = 'ko';
+    firebaseReady = true;
+    console.log('✅ Firebase 연결 성공 (Auth + Firestore + Realtime DB)');
+  }catch(e){
+    console.error('Firebase 초기화 오류:', e);
+    document.getElementById('firebase-notice').classList.add('show');
+    // Firebase 연동 실패 시엔 로그인 상태를 확인할 수 없으므로 바로 화면 표시
+    document.getElementById('auth-check-loading').style.display = 'none';
+    document.querySelector('.page').style.display = 'flex';
+  }
+})();
+
+// ── 상태 ──
+let selectedRole = null; // 'composer' | 'lyricist'
+
+// ── 역할 선택 ──
+function selectRole(role){
+  selectedRole = role;
+  const cards = { composer: document.getElementById('card-composer'), lyricist: document.getElementById('card-lyricist') };
+  const other = role === 'composer' ? 'lyricist' : 'composer';
+  cards[role].className   = `role-card selected-${role}`;
+  cards[other].className  = 'role-card';
+  document.getElementById('role-error').classList.remove('show');
+}
+
+// ── 유효성 검사 ──
+function validateId(){
+  const val = document.getElementById('uid').value.trim();
+  const err = document.getElementById('uid-error');
+  const msg = document.getElementById('uid-error-msg');
+  const hint= document.getElementById('uid-hint');
+  const inp = document.getElementById('uid');
+  if(!val){ inp.classList.remove('error','valid'); err.classList.remove('show'); hint.textContent=''; return false; }
+  if(!/^[a-zA-Z0-9_]{4,20}$/.test(val)){
+    inp.classList.add('error'); inp.classList.remove('valid');
+    msg.textContent = '영문, 숫자, 밑줄(_) 4~20자만 허용됩니다'; err.classList.add('show'); hint.textContent='';
+    return false;
+  }
+  inp.classList.remove('error'); inp.classList.add('valid'); err.classList.remove('show');
+  hint.textContent = '✓ 사용 가능한 형식입니다';
+  hint.style.color = 'var(--green-light)';
+  return true;
+}
+function validateEmail(){
+  const val = document.getElementById('email').value.trim();
+  const err = document.getElementById('email-error');
+  const msg = document.getElementById('email-error-msg');
+  const inp = document.getElementById('email');
+  if(!val){ inp.classList.remove('error','valid'); err.classList.remove('show'); return false; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)){
+    inp.classList.add('error'); inp.classList.remove('valid');
+    msg.textContent = '올바른 이메일 형식이 아닙니다'; err.classList.add('show');
+    return false;
+  }
+  inp.classList.remove('error'); inp.classList.add('valid'); err.classList.remove('show');
+  return true;
+}
+function validatePw(){
+  const val  = document.getElementById('pw').value;
+  const fill = document.getElementById('pw-fill');
+  const lbl  = document.getElementById('pw-label');
+  const err  = document.getElementById('pw-error');
+  const msg  = document.getElementById('pw-error-msg');
+  const inp  = document.getElementById('pw');
+  // 강도 계산
+  let score = 0;
+  if(val.length >= 8)              score++;
+  if(val.length >= 12)             score++;
+  if(/[A-Z]/.test(val))           score++;
+  if(/[0-9]/.test(val))           score++;
+  if(/[^a-zA-Z0-9]/.test(val))   score++;
+  const configs = [
+    {w:'0%',   bg:'transparent', text:'비밀번호를 입력하세요'},
+    {w:'20%',  bg:'#F43F5E',     text:'매우 약함'},
+    {w:'40%',  bg:'#FB923C',     text:'약함'},
+    {w:'60%',  bg:'#FBBF24',     text:'보통'},
+    {w:'80%',  bg:'#34D399',     text:'강함'},
+    {w:'100%', bg:'#10B981',     text:'매우 강함'},
+  ];
+  const cfg = configs[score] || configs[0];
+  fill.style.width      = cfg.w;
+  fill.style.background = cfg.bg;
+  lbl.textContent       = cfg.text;
+  lbl.style.color       = cfg.bg || 'var(--text3)';
+  if(!val){ err.classList.remove('show'); inp.classList.remove('error','valid'); return false; }
+  if(val.length < 8){
+    inp.classList.add('error'); inp.classList.remove('valid');
+    msg.textContent = '8자 이상 입력하세요'; err.classList.add('show');
+    return false;
+  }
+  inp.classList.remove('error'); inp.classList.add('valid'); err.classList.remove('show');
+  validatePw2();
+  return true;
+}
+function validatePw2(){
+  const v1  = document.getElementById('pw').value;
+  const v2  = document.getElementById('pw2').value;
+  const err = document.getElementById('pw2-error');
+  const inp = document.getElementById('pw2');
+  if(!v2){ inp.classList.remove('error','valid'); err.classList.remove('show'); return false; }
+  if(v1 !== v2){
+    inp.classList.add('error'); inp.classList.remove('valid'); err.classList.add('show');
+    return false;
+  }
+  inp.classList.remove('error'); inp.classList.add('valid'); err.classList.remove('show');
+  return true;
+}
+
+function togglePw(id, btn){
+  const inp = document.getElementById(id);
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='🔒'; }
+  else { inp.type='password'; btn.textContent='👁'; }
+}
+
+// ── 회원가입 실행 ──
+async function doSignup(){
+  // 유효성 검사 전체
+  const roleOk  = !!selectedRole;
+  const idOk    = validateId();
+  const emailOk = validateEmail();
+  const pwOk    = validatePw();
+  const pw2Ok   = validatePw2();
+  const termsOk = document.getElementById('terms').checked;
+
+  if(!roleOk)  document.getElementById('role-error').classList.add('show');
+  if(!termsOk) document.getElementById('terms-error').classList.add('show');
+  else          document.getElementById('terms-error').classList.remove('show');
+
+  if(!roleOk || !idOk || !emailOk || !pwOk || !pw2Ok || !termsOk){
+    showToast('모든 항목을 올바르게 입력해주세요.','error');
+    return;
+  }
+
+  const uid   = document.getElementById('uid').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const pw    = document.getElementById('pw').value;
+
+  // 로딩 시작
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.classList.add('loading');
+
+  try{
+    // 1. Firebase Auth — 계정 생성
+    const credential = await fbAuth.createUserWithEmailAndPassword(email, pw);
+    const user = credential.user;
+
+    // 2. displayName 설정 (아이디로)
+    await user.updateProfile({ displayName: uid });
+
+    // 3. Firestore — 사용자 프로필 저장
+    const userData = {
+      uid        : uid,
+      email      : email,
+      role       : selectedRole,
+      roleLabel  : selectedRole === 'composer' ? '음원 등록자' : '작사가',
+      status     : 'active',
+      emailVerified: false,
+      createdAt  : firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt  : firebase.firestore.FieldValue.serverTimestamp(),
+      ...(selectedRole === 'composer' ? {
+        tracksCount  : 0,
+        totalPrizeSet: 0,
+      } : {
+        submissionsCount : 0,
+        totalEarned      : 0,
+        acceptedCount    : 0,
+      }),
+    };
+    await fbDb.collection('users').doc(user.uid).set(userData);
+
+    // 4. Realtime Database — uid 인덱스 저장 (아이디 중복 방지 + 빠른 조회용)
+    await fbRtdb.ref(`users/${user.uid}`).set({
+      uid      : uid,
+      email    : email,
+      role     : selectedRole,
+      createdAt: Date.now(),
+    });
+    // uid → firebaseUID 역방향 인덱스
+    await fbRtdb.ref(`uid_index/${uid}`).set(user.uid);
+
+    // 5. 이메일 인증 메일 발송
+    await user.sendEmailVerification();
+
+    showSuccess({ uid, email, role: selectedRole, firebaseUid: user.uid });
+
+  }catch(err){
+    console.error('가입 오류:', err);
+    btn.disabled = false; btn.classList.remove('loading');
+    showToast(getFirebaseError(err.code), 'error');
+  }
+}
+
+// ── 성공 화면 ──
+function showSuccess({ uid, email, role, firebaseUid }){
+  document.getElementById('signup-form').style.display = 'none';
+  const sc = document.getElementById('success-screen');
+  sc.style.display = 'flex';
+
+  // 역할 뱃지
+  const badge = document.getElementById('success-role-badge');
+  badge.className = `success-role-badge ${role}`;
+  badge.innerHTML = role === 'composer' ? '🎵 음원 등록자로 가입 완료' : '✍️ 작사가로 가입 완료';
+
+  // 정보 박스
+  document.getElementById('success-info-box').innerHTML = `
+    <div class="info-row">
+      <span class="key">아이디</span>
+      <span class="val">${uid}</span>
+    </div>
+    <div class="info-row">
+      <span class="key">이메일</span>
+      <span class="val">${email}</span>
+    </div>
+    <div class="info-row">
+      <span class="key">역할</span>
+      <span class="val">${role === 'composer' ? '🎵 음원 등록자' : '✍️ 작사가'}</span>
+    </div>
+    ${firebaseUid ? `<div class="info-row"><span class="key">Firebase UID</span><span class="val" style="font-size:11px;color:var(--text3)">${firebaseUid}</span></div>` : ''}
+  `;
+  document.getElementById('success-email').textContent = email;
+}
+
+// ── Firebase 에러 메시지 한국어화 ──
+function getFirebaseError(code){
+  const map = {
+    'auth/email-already-in-use'   : '이미 사용 중인 이메일입니다.',
+    'auth/invalid-email'          : '올바르지 않은 이메일 형식입니다.',
+    'auth/weak-password'          : '비밀번호가 너무 약합니다 (6자 이상).',
+    'auth/operation-not-allowed'  : '이메일 가입이 비활성화되어 있습니다.',
+    'auth/network-request-failed' : '네트워크 오류가 발생했습니다.',
+    'auth/too-many-requests'      : '요청이 너무 많습니다. 잠시 후 다시 시도하세요.',
+    'auth/configuration-not-found': 'Firebase 설정을 확인해주세요.',
+  };
+  return map[code] || `오류가 발생했습니다 (${code})`;
+}
+
+// ── 로그인 페이지 이동 ──
+// ── 화면 모드 전환 (회원가입 ↔ 로그인) ──
+function switchMode(mode){
+  const isSignup = mode === 'signup';
+  // 모드 버튼
+  document.getElementById('mode-signup').classList.toggle('active', isSignup);
+  document.getElementById('mode-login').classList.toggle('active', !isSignup);
+  // 회원가입 영역
+  document.getElementById('signup-form').style.display   = isSignup ? '' : 'none';
+  document.getElementById('success-screen').style.display= 'none';
+  // 로그인 영역
+  document.getElementById('login-form').style.display    = isSignup ? 'none' : 'flex';
+  document.getElementById('reset-form').style.display    = 'none';
+  document.getElementById('login-success').style.display = 'none';
+  // 헤더 버튼
+  document.querySelector('.header-right').innerHTML = isSignup
+    ? `이미 계정이 있으신가요? <button class="link-btn" onclick="switchMode('login')">로그인 →</button>`
+    : `계정이 없으신가요? <button class="link-btn" onclick="switchMode('signup')">회원가입 →</button>`;
+}
+
+// ── 로그인 탭 (이메일 / 아이디) ──
+let loginMode = 'email';
+function switchLoginTab(mode){
+  loginMode = mode;
+  document.getElementById('tab-email').classList.toggle('active', mode==='email');
+  document.getElementById('tab-uid').classList.toggle('active', mode==='uid');
+  document.getElementById('lfield-email').style.display = mode==='email' ? '' : 'none';
+  document.getElementById('lfield-uid').style.display   = mode==='uid'   ? '' : 'none';
+  setTimeout(()=>document.getElementById(mode==='email'?'l-email':'l-uid').focus(), 50);
+}
+
+function toggleLoginPw(){
+  const inp = document.getElementById('l-pw');
+  const btn = inp.nextElementSibling;
+  if(inp.type==='password'){ inp.type='text'; btn.textContent='🔒'; }
+  else{ inp.type='password'; btn.textContent='👁'; }
+}
+
+function lClearErr(field){
+  document.getElementById('lerr-'+field)?.classList.remove('show');
+  const inp = document.getElementById('l-'+field);
+  if(inp) inp.classList.remove('error');
+}
+
+function lShowErr(field, msg){
+  const msgEl = document.getElementById('lerr-'+field+'-msg');
+  if(msgEl) msgEl.textContent = msg;
+  document.getElementById('lerr-'+field)?.classList.add('show');
+  const inp = document.getElementById('l-'+field);
+  if(inp) inp.classList.add('error');
+}
+
+// ── 로그인 실행 ──
+async function doLogin(){
+  const pw = document.getElementById('l-pw').value;
+  if(!pw){ lShowErr('pw','비밀번호를 입력해주세요'); return; }
+
+  let email = '';
+
+  if(loginMode === 'email'){
+    const v = document.getElementById('l-email').value.trim();
+    if(!v){ lShowErr('email','이메일을 입력해주세요'); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){ lShowErr('email','올바른 이메일 형식이 아닙니다'); return; }
+    email = v;
+  } else {
+    const uid = document.getElementById('l-uid').value.trim();
+    if(!uid){ lShowErr('uid','아이디를 입력해주세요'); return; }
+    setLoginLoading(true);
+    try{
+      const snap = await fbRtdb.ref(`uid_index/${uid}`).get();
+      if(!snap.exists()){ lShowErr('uid','존재하지 않는 아이디입니다'); setLoginLoading(false); return; }
+      const doc = await fbDb.collection('users').doc(snap.val()).get();
+      if(!doc.exists){ lShowErr('uid','사용자 정보를 찾을 수 없습니다'); setLoginLoading(false); return; }
+      email = doc.data().email;
+    }catch(e){ lShowErr('uid','아이디 조회 중 오류 발생'); setLoginLoading(false); return; }
+  }
+
+  setLoginLoading(true);
+  try{
+    const remember = document.getElementById('remember-me').checked;
+    await fbAuth.setPersistence(
+      remember ? firebase.auth.Auth.Persistence.LOCAL
+               : firebase.auth.Auth.Persistence.SESSION
+    );
+    localStorage.setItem('lc_remember', remember ? 'true' : 'false');
+
+    const cred = await fbAuth.signInWithEmailAndPassword(email, pw);
+    await showLoginSuccess(cred.user);
+  }catch(err){
+    setLoginLoading(false);
+    const msg = getLoginError(err.code);
+    if(['auth/wrong-password','auth/invalid-credential'].includes(err.code)) lShowErr('pw', msg);
+    else if(err.code==='auth/user-not-found') lShowErr(loginMode==='email'?'email':'uid', msg);
+    else showToast(msg, 'error');
+  }
+}
+
+// ── Google 로그인 ──
+async function googleLogin(){
+  try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    setLoginLoading(true);
+    const result = await fbAuth.signInWithPopup(provider);
+    const user   = result.user;
+    if(result.additionalUserInfo?.isNewUser){
+      await fbDb.collection('users').doc(user.uid).set({
+        uid: user.displayName || user.email.split('@')[0],
+        email: user.email, role: '', roleLabel: '미설정', status: 'active',
+        provider: 'google',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      showToast('Google 계정으로 가입되었습니다! 프로필에서 역할을 설정해주세요.','info');
+    }
+    await showLoginSuccess(user);
+  }catch(e){
+    setLoginLoading(false);
+    if(e.code !== 'auth/popup-closed-by-user') showToast(getLoginError(e.code),'error');
+  }
+}
+
+// ── 로그인 성공 화면 ──
+async function showLoginSuccess(user){
+  try{
+    const doc = await fbDb.collection('users').doc(user.uid).get();
+    const p   = doc.exists ? doc.data() : {};
+    if(doc.exists){
+      await fbDb.collection('users').doc(user.uid).update({
+        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    currentUserProfile = p;
+
+    const uid       = p.uid || user.displayName || '사용자';
+    const role      = p.role || '';
+    const roleLabel = p.roleLabel || (role==='composer'?'음원 등록자': role==='lyricist'?'작사가':'미설정');
+    const verified  = user.emailVerified
+      ? '<span style="color:var(--green);font-size:11px;font-weight:700;">✓ 인증됨</span>'
+      : '<span style="color:var(--red);font-size:11px;">미인증</span>';
+
+    setLoginLoading(false);
+
+    // 음원 등록자 → 음원 등록자 대시보드
+    if(role === 'composer'){
+      showToast(`✅ ${uid}님, 로그인 성공!`,'success');
+      setTimeout(()=> goDashboard(), 600);
+      return;
+    }
+
+    // 작사가 → 작사가 대시보드
+    if(role === 'lyricist'){
+      showToast(`✅ ${uid}님, 로그인 성공!`,'success');
+      setTimeout(()=> goLyricistDashboard(), 600);
+      return;
+    }
+
+    // 작사가 또는 역할 미설정 → 성공 화면 표시
+    document.querySelector('.page').style.display    = 'flex';
+    document.getElementById('login-form').style.display    = 'none';
+    document.getElementById('reset-form').style.display    = 'none';
+    document.getElementById('auth-mode-switch').style.display = 'none';
+    const sc = document.getElementById('login-success');
+    sc.style.display = 'flex';
+
+    document.getElementById('ls-title').textContent = `${uid}님, 환영합니다!`;
+    document.getElementById('ls-desc').textContent  = '성공적으로 로그인되었습니다.';
+    document.getElementById('ls-info').innerHTML = `
+      <div class="linfo-row"><span class="lkey">아이디</span><span class="lval">${uid}</span></div>
+      <div class="linfo-row"><span class="lkey">이메일</span><span class="lval">${user.email} ${verified}</span></div>
+      <div class="linfo-row"><span class="lkey">역할</span><span class="lval"><span class="role-pill">${role==='composer'?'🎵':role==='lyricist'?'✍️':'👤'} ${roleLabel}</span></span></div>
+    `;
+    showToast(`✅ ${uid}님, 로그인 성공!`,'success');
+  }catch(e){
+    setLoginLoading(false);
+    // 오류가 나도 화면이 빈 채로 남지 않도록 로그인 화면을 보여준다
+    document.querySelector('.page').style.display = 'flex';
+    switchMode('login');
+    showToast('로그인은 성공했지만 프로필 로드 중 오류가 발생했습니다.','info');
+  }
+}
+
+// ── 비밀번호 재설정 ──
+async function doReset(){
+  const email = document.getElementById('reset-email').value.trim();
+  if(!email){ lShowErr('reset','이메일을 입력해주세요'); return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ lShowErr('reset','올바른 이메일 형식이 아닙니다'); return; }
+  setResetLoading(true);
+  try{
+    await fbAuth.sendPasswordResetEmail(email);
+    setResetLoading(false);
+    showToast(`📧 ${email}로 재설정 링크를 발송했습니다.`,'success');
+    setTimeout(()=>showLoginForm(), 1800);
+  }catch(e){
+    setResetLoading(false);
+    lShowErr('reset', getLoginError(e.code));
+  }
+}
+
+// ── 로그아웃 ──
+async function doLogout(){
+  await fbAuth.signOut();
+  localStorage.removeItem('lc_remember');
+  currentUserProfile = null;
+  // 대시보드 숨기기 (음원등록자 + 작사가)
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('lyricist-dashboard').style.display = 'none';
+  document.querySelector('.page').style.display = '';
+  // 로그인 화면 초기화
+  document.getElementById('login-success').style.display = 'none';
+  document.getElementById('auth-mode-switch').style.display = '';
+  document.getElementById('login-form').style.display = 'flex';
+  document.getElementById('mode-login').classList.add('active');
+  document.getElementById('mode-signup').classList.remove('active');
+  document.getElementById('signup-form').style.display = 'none';
+  ['l-email','l-uid','l-pw'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  showToast('로그아웃되었습니다.','info');
+}
+
+function showResetForm(){
+  document.getElementById('login-form').style.display = 'none';
+  document.getElementById('reset-form').style.display = 'flex';
+  setTimeout(()=>document.getElementById('reset-email').focus(), 50);
+}
+function showLoginForm(){
+  document.getElementById('reset-form').style.display  = 'none';
+  document.getElementById('login-form').style.display  = 'flex';
+}
+// ── IndexedDB — 음원 파일 로컬 저장 ──
+const IDB_NAME    = 'LyricCatchDB';
+const IDB_STORE   = 'tracks';
+const IDB_VERSION = 2;  // 버전 올려서 인덱스 재생성
+
+function openIDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      // 기존 스토어 있으면 삭제 후 재생성 (인덱스 포함)
+      if(db.objectStoreNames.contains(IDB_STORE)){
+        db.deleteObjectStore(IDB_STORE);
+      }
+      const store = db.createObjectStore(IDB_STORE, { keyPath:'localId', autoIncrement:true });
+      store.createIndex('firestoreId','firestoreId',{unique:false});
+      store.createIndex('composerUid','composerUid',{unique:false});
+      console.log('✅ IndexedDB 스토어 및 인덱스 생성 완료');
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function saveFileToIDB(db, record){
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(IDB_STORE,'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    const req   = store.add(record);
+    req.onsuccess = () => resolve(req.result);   // localId 반환
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+function getTracksFromIDB(db, composerUid){
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(IDB_STORE,'readonly');
+    const store = tx.objectStore(IDB_STORE);
+    // 인덱스가 있으면 인덱스 사용, 없으면 전체 스캔 후 필터
+    if(store.indexNames.contains('composerUid')){
+      const idx = store.index('composerUid');
+      const req = idx.getAll(composerUid);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror   = () => reject(req.error);
+    } else {
+      // 폴백: 전체 레코드 조회 후 필터
+      const req = store.getAll();
+      req.onsuccess = () => resolve((req.result||[]).filter(r=>r.composerUid===composerUid));
+      req.onerror   = () => reject(req.error);
+    }
+  });
+}
+
+// 음원 레코드 삭제 (로컬 파일 + 메타데이터 모두 제거)
+function deleteTrackFromIDB(db, localId){
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(IDB_STORE,'readwrite');
+    const store = tx.objectStore(IDB_STORE);
+    const req   = store.delete(localId);
+    req.onsuccess = () => resolve();
+    req.onerror   = () => reject(req.error);
+  });
+}
+
+// Object URL 캐시 (재생용)
+const objectURLCache = {};
+async function getTrackObjectURL(localId){
+  if(objectURLCache[localId]) return objectURLCache[localId];
+  const db  = await openIDB();
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(IDB_STORE,'readonly');
+    const store = tx.objectStore(IDB_STORE);
+    const req   = store.get(localId);
+    req.onsuccess = () => {
+      if(req.result?.fileBlob){
+        const url = URL.createObjectURL(req.result.fileBlob);
+        objectURLCache[localId] = url;
+        resolve(url);
+      } else { reject(new Error('파일을 찾을 수 없습니다.')); }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ── 음원 등록 제출 (IndexedDB + Firestore 메타데이터) ──
+async function submitTrack(){
+  // 유효성 검사
+  let ok = true;
+  if(!selectedTrackFile){ mShowErr('file'); ok=false; }
+  if(!document.getElementById('t-title').value.trim()){ mShowErr('title'); ok=false; }
+  if(!document.getElementById('t-genre').value){ mShowErr('genre'); ok=false; }
+  const prize = parseInt(document.getElementById('t-prize').value)||0;
+  if(prize < 50000){ mShowErr('prize'); ok=false; }
+  if(!document.getElementById('t-concept').value.trim()){ mShowErr('concept'); ok=false; }
+  if(!ok){ showToast('필수 항목을 모두 입력해주세요.','error'); return; }
+
+  const btn = document.getElementById('track-submit-btn');
+  btn.disabled = true; btn.classList.add('loading');
+
+  // 진행 표시 시작
+  const prog   = document.getElementById('upload-progress');
+  const bar    = document.getElementById('up-bar');
+  const status = document.getElementById('up-status');
+  const pctEl  = document.getElementById('up-pct');
+  prog.classList.add('show');
+  status.textContent = '파일 저장 중...';
+  bar.style.width = '30%'; pctEl.textContent = '30%';
+
+  try{
+    const user   = fbAuth.currentUser;
+    const period = parseInt(document.getElementById('t-period').value)||14;
+    const deadline = new Date();
+    deadline.setDate(deadline.getDate() + period);
+
+    const meta = {
+      composerUid : user.uid,
+      composerName: currentUserProfile?.uid || '',
+      title       : document.getElementById('t-title').value.trim(),
+      artist      : document.getElementById('t-artist').value.trim(),
+      genre       : document.getElementById('t-genre').value,
+      bpm         : parseInt(document.getElementById('t-bpm').value)||null,
+      period,
+      prize,
+      concept     : document.getElementById('t-concept').value.trim(),
+      guide       : document.getElementById('t-guide').value.trim(),
+      fileName    : selectedTrackFile.name,
+      fileSize    : selectedTrackFile.size,
+      fileType    : selectedTrackFile.type,
+      status      : 'open',
+      entriesCount: 0,
+      deadline    : deadline.toISOString(),
+      savedAt     : new Date().toISOString(),
+    };
+
+    // 1. IndexedDB에 파일 Blob + 메타 저장
+    bar.style.width = '55%'; pctEl.textContent = '55%';
+    const db      = await openIDB();
+    const localId = await saveFileToIDB(db, {
+      ...meta,
+      fileBlob    : selectedTrackFile,   // 실제 파일 Blob
+      firestoreId : '',                  // 나중에 업데이트
+    });
+
+    bar.style.width = '80%'; pctEl.textContent = '80%';
+    status.textContent = 'Firestore 저장 중...';
+
+    // 2. Firestore에 메타데이터 저장 (파일 제외)
+    const firestoreData = {
+      ...meta,
+      localId,                           // IndexedDB 키 (로컬 파일 조회용)
+      audioUrl    : `local:${localId}`,  // 로컬 저장 표시
+      deadline    : firebase.firestore.Timestamp.fromDate(deadline),
+      createdAt   : firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt   : firebase.firestore.FieldValue.serverTimestamp(),
+    };
+    const docRef = await fbDb.collection('tracks').add(firestoreData);
+
+    // 3. IndexedDB 레코드에 firestoreId 업데이트
+    await new Promise((resolve, reject) => {
+      const tx    = db.transaction(IDB_STORE,'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      const getReq = store.get(localId);
+      getReq.onsuccess = () => {
+        const rec = getReq.result;
+        rec.firestoreId = docRef.id;
+        const putReq = store.put(rec);
+        putReq.onsuccess = resolve;
+        putReq.onerror   = () => reject(putReq.error);
+      };
+    });
+
+    // 4. 유저 통계 업데이트
+    await fbDb.collection('users').doc(user.uid).update({
+      tracksCount  : firebase.firestore.FieldValue.increment(1),
+      totalPrizeSet: firebase.firestore.FieldValue.increment(prize),
+      updatedAt    : firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    bar.style.width = '100%'; pctEl.textContent = '100%';
+    status.textContent = '완료!';
+
+    setTimeout(()=>{
+      btn.disabled = false; btn.classList.remove('loading');
+      closeTrackModal();
+      showToast(`✅ "${meta.title}" 등록 완료! 로컬 PC에 저장되었습니다.`,'success');
+      loadDashboard();
+    }, 500);
+
+  }catch(err){
+    console.error('음원 등록 오류:', err);
+    btn.disabled = false; btn.classList.remove('loading');
+    prog.classList.remove('show');
+    bar.style.width = '0%';
+    showToast('등록 중 오류가 발생했습니다: ' + err.message,'error');
+  }
+}
+
+// ── 대시보드 진입 ──
+let currentUserProfile = null;
+
+function goDashboard(){
+  if(!currentUserProfile){ showToast('프로필을 불러오는 중입니다.','info'); return; }
+  if(currentUserProfile.role !== 'composer'){
+    showToast('음원 등록자만 접근할 수 있습니다.','error'); return;
+  }
+  // 인증 화면 숨기고 대시보드 표시
+  document.querySelector('.page').style.display = 'none';
+  const dash = document.getElementById('dashboard');
+  dash.style.display = 'block';
+  // 유저 정보 세팅
+  const uid = currentUserProfile.uid || '사용자';
+  document.getElementById('dash-greeting').textContent =
+    `안녕하세요, ${uid}님! 오늘도 좋은 음악을 만들어보세요.`;
+  document.getElementById('dash-avatar').textContent = uid.charAt(0).toUpperCase();
+  document.getElementById('dash-username').textContent = uid;
+  // 트랙 목록 로드
+  loadDashboard();
+}
+
+// 현재 로그인한 등록자의 트랙 목록 캐시 (삭제 등 액션에서 제목 조회용)
+let composerTracksCache = [];
+
+async function loadDashboard(){
+  if(!fbAuth.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+
+  // 로딩 표시
+  document.getElementById('track-list').innerHTML = `
+    <div class="empty-state" style="color:var(--text3);">
+      <div class="es-icon" style="font-size:24px;">⏳</div>
+      <div>목록을 불러오는 중...</div>
+    </div>`;
+
+  try{
+    // 1. IndexedDB에서 내 파일 목록 조회 (로컬)
+    const db       = await openIDB();
+    const idbTracks = await getTracksFromIDB(db, uid);
+
+    // 2. Firestore에서 메타데이터 조회 (인덱스 오류 방지 위해 orderBy 제거)
+    let firestoreMap = {};
+    try{
+      const snap = await fbDb.collection('tracks')
+        .where('composerUid','==', uid)
+        .get();
+      snap.forEach(doc => { firestoreMap[doc.id] = {fsId: doc.id, ...doc.data()}; });
+    }catch(e){
+      console.warn('Firestore 조회 오류(인덱스 미생성일 수 있음):', e.message);
+    }
+
+    // 3. IndexedDB 기준으로 병합 (firestoreId로 매칭)
+    const tracks = idbTracks.map(t => {
+      const fsData = t.firestoreId ? firestoreMap[t.firestoreId] : null;
+      return {
+        localId     : t.localId,
+        firestoreId : t.firestoreId || '',
+        title       : t.title,
+        genre       : t.genre,
+        bpm         : t.bpm,
+        prize       : t.prize,
+        concept     : t.concept,
+        artist      : t.artist,
+        fileName    : t.fileName,
+        fileSize    : t.fileSize,
+        status      : fsData?.status || t.status || 'open',
+        entriesCount: fsData?.entriesCount || t.entriesCount || 0,
+        deadline    : t.deadline,
+        savedAt     : t.savedAt,
+      };
+    });
+
+    // savedAt 기준 내림차순 정렬
+    tracks.sort((a,b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+    // 4. 통계 업데이트
+    const totalPrize   = tracks.reduce((s,t)=>s+(t.prize||0), 0);
+    const totalEntries = tracks.reduce((s,t)=>s+(t.entriesCount||0), 0);
+    document.getElementById('stat-tracks').textContent  = tracks.length;
+    document.getElementById('stat-entries').textContent = totalEntries;
+    document.getElementById('stat-prize').textContent   = '₩' + totalPrize.toLocaleString();
+
+    // 등록자 아이콘 배지: 내 음원에 응모(등록)된 가사 건수 표시
+    const dashBadge = document.getElementById('dash-avatar-badge');
+    if(dashBadge){
+      if(totalEntries > 0){
+        dashBadge.textContent = totalEntries > 99 ? '99+' : totalEntries;
+        dashBadge.style.display = 'flex';
+      } else {
+        dashBadge.style.display = 'none';
+      }
+    }
+
+    // 5. 목록 렌더링
+    composerTracksCache = tracks;
+    renderTrackList(tracks);
+
+  }catch(e){
+    console.error('대시보드 로드 오류:', e);
+    document.getElementById('track-list').innerHTML = `
+      <div class="empty-state" style="color:var(--red);">
+        <div class="es-icon">⚠️</div>
+        <div>목록을 불러오지 못했습니다.<br/>${e.message}</div>
+      </div>`;
+  }
+}
+
+function renderTrackList(tracks){
+  const list = document.getElementById('track-list');
+  if(!tracks || tracks.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="es-icon">🎵</div>
+        <div>등록된 음원이 없습니다.<br/>+ 음원 등록 버튼을 눌러 첫 번째 음원을 등록해보세요!</div>
+      </div>`;
+    return;
+  }
+  list.innerHTML = tracks.map(t => {
+    // 마감일 계산
+    let ddayStr = '', isOpen = false;
+    try{
+      const deadline = new Date(t.deadline);
+      const dday = Math.ceil((deadline - new Date()) / (1000*60*60*24));
+      ddayStr = dday > 0 ? `D-${dday}` : '마감';
+      isOpen  = dday > 0;
+    }catch(e){ ddayStr='?'; }
+
+    // 가사가 채택되면(status가 'closed') 마감일이 남아있어도 즉시 '마감' 처리
+    if(t.status === 'closed'){
+      isOpen  = false;
+      ddayStr = '마감';
+    }
+
+    const fileSizeMB = t.fileSize ? (t.fileSize/1024/1024).toFixed(1)+'MB' : '';
+    const savedDate  = t.savedAt ? new Date(t.savedAt).toLocaleDateString('ko-KR') : '';
+
+    return `
+    <div class="track-item">
+      <div class="ti-icon">🎵</div>
+      <div class="ti-info">
+        <div class="ti-title">${escHtml(t.title)}</div>
+        <div class="ti-meta">
+          ${t.genre ? `<span>${escHtml(t.genre)}</span> · ` : ''}
+          ${t.bpm   ? `<span>${t.bpm} BPM</span> · ` : ''}
+          <span>상금 ₩${(t.prize||0).toLocaleString()}</span> ·
+          <span>응모 ${t.entriesCount||0}건</span> ·
+          <span>${ddayStr}</span>
+          ${fileSizeMB ? ` · <span style="color:var(--text3)">${fileSizeMB}</span>` : ''}
+          ${savedDate  ? ` · <span style="color:var(--text3)">등록일 ${savedDate}</span>` : ''}
+        </div>
+        ${t.fileName ? `<div style="font-size:11px;color:var(--text3);margin-top:3px;">📁 ${escHtml(t.fileName)}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+        <span class="ti-badge ${isOpen?'open':'closed'}">${isOpen?'공모중':'마감'}</span>
+      <button onclick="openReviewModal('${t.firestoreId||''}','${escHtml(t.title)}')"
+        style="padding:6px 12px;border-radius:var(--r);border:1px solid var(--border);
+        background:#fff;color:var(--text2);font-size:11px;font-weight:600;
+        cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap;
+        ${!t.firestoreId?'opacity:.35;cursor:not-allowed':''}
+        " ${!t.firestoreId?'disabled':''} title="${!t.firestoreId?'Firestore 연동 후 사용 가능':'접수된 가사 확인'}">
+        📋 가사 심사 ${t.entriesCount>0?`(${t.entriesCount})` : ''}
+      </button>
+        <div style="display:flex;gap:6px;">
+          <button onclick="playLocalTrack(${t.localId})" style="
+            background:none;border:1px solid var(--border);border-radius:var(--r);
+            color:var(--text2);font-size:11px;padding:3px 8px;cursor:pointer;
+            font-family:inherit;transition:.15s;white-space:nowrap;
+          " onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'"
+             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'">
+            ▶ 미리듣기
+          </button>
+          <button onclick="deleteTrack(${t.localId})" style="
+            background:none;border:1px solid var(--border);border-radius:var(--r);
+            color:var(--text2);font-size:11px;padding:3px 8px;cursor:pointer;
+            font-family:inherit;transition:.15s;white-space:nowrap;
+          " onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+             title="공모 삭제">
+            🗑 삭제
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 로컬 파일 미리듣기 ──
+let currentAudio = null;
+async function playLocalTrack(localId){
+  try{
+    if(currentAudio){ currentAudio.pause(); currentAudio = null; }
+    const url = await getTrackObjectURL(localId);
+    currentAudio = new Audio(url);
+    currentAudio.volume = 0.8;
+    currentAudio.play();
+    showToast('▶ 미리듣기 재생 중... (클릭 시 정지)','info');
+    currentAudio.onended = ()=>{ currentAudio=null; };
+  }catch(e){
+    showToast('파일을 재생할 수 없습니다: '+e.message,'error');
+  }
+}
+
+// ── 등록한 음원(공모) 삭제 ──
+async function deleteTrack(localId){
+  const track = composerTracksCache.find(t => t.localId === localId);
+  const title = track?.title || '이 음원';
+  const entriesCount = track?.entriesCount || 0;
+
+  const warn = entriesCount > 0
+    ? `\n\n⚠️ 이미 ${entriesCount}건의 가사가 응모된 공모입니다. 삭제하면 복구할 수 없습니다.`
+    : '\n\n삭제하면 복구할 수 없습니다.';
+  const ok = confirm(`'${title}' 공모를 정말 삭제하시겠습니까?${warn}`);
+  if(!ok) return;
+
+  try{
+    // 1. 로컬(IndexedDB)에서 음원 파일 + 메타데이터 삭제
+    const db = await openIDB();
+    await deleteTrackFromIDB(db, localId);
+
+    // 2. Firestore에 등록된 트랙 문서도 함께 삭제
+    if(track?.firestoreId){
+      await fbDb.collection('tracks').doc(track.firestoreId).delete();
+    }
+
+    showToast('🗑 공모가 삭제되었습니다.', 'success');
+    loadDashboard();
+  }catch(e){
+    showToast('삭제 중 오류: ' + e.message, 'error');
+  }
+}
+
+function escHtml(s){
+  if(!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── 음원 등록 모달 ──
+let selectedTrackFile = null;
+
+function openTrackModal(){
+  document.getElementById('track-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeTrackModal(){
+  document.getElementById('track-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  resetTrackForm();
+}
+
+function resetTrackForm(){
+  ['t-title','t-artist','t-bpm','t-prize','t-concept','t-guide'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  document.getElementById('t-genre').value = '';
+  document.getElementById('t-period').value = '14';
+  document.getElementById('prize-preview').textContent = '';
+  removeFile();
+  document.getElementById('upload-progress').classList.remove('show');
+  document.getElementById('up-bar').style.width = '0%';
+  // 에러 초기화
+  ['file','title','genre','prize','concept'].forEach(f=>mClearErr(f));
+}
+
+// 파일 드롭존
+function onDragOver(e){
+  e.preventDefault();
+  document.getElementById('file-zone').classList.add('drag');
+}
+function onDragLeave(e){
+  document.getElementById('file-zone').classList.remove('drag');
+}
+function onDrop(e){
+  e.preventDefault();
+  document.getElementById('file-zone').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if(file) processFile(file);
+}
+function onFileSelected(input){
+  if(input.files[0]) processFile(input.files[0]);
+}
+function processFile(file){
+  const ok = file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav)$/i);
+  if(!ok){ showToast('MP3 또는 WAV 파일만 업로드 가능합니다.','error'); return; }
+  if(file.size > 100*1024*1024){ showToast('파일 크기가 100MB를 초과합니다.','error'); return; }
+  selectedTrackFile = file;
+  document.getElementById('file-zone').style.display     = 'none';
+  document.getElementById('file-selected').style.display = 'flex';
+  document.getElementById('fs-name').textContent = file.name;
+  document.getElementById('fs-size').textContent = (file.size/1024/1024).toFixed(2) + ' MB';
+  mClearErr('file');
+  // 곡 제목 자동 입력
+  if(!document.getElementById('t-title').value){
+    document.getElementById('t-title').value = file.name.replace(/\.(mp3|wav)$/i,'');
+  }
+}
+function removeFile(){
+  selectedTrackFile = null;
+  document.getElementById('track-file').value = '';
+  document.getElementById('file-zone').style.display     = '';
+  document.getElementById('file-selected').style.display = 'none';
+  document.getElementById('fs-name').textContent = '';
+  document.getElementById('fs-size').textContent = '';
+}
+
+function updatePrizePreview(){
+  const v = parseInt(document.getElementById('t-prize').value)||0;
+  const net = Math.floor(v*0.85);
+  document.getElementById('prize-preview').textContent =
+    v >= 50000 ? `작사가 수령액: ₩${net.toLocaleString()} (수수료 15% 제외)` : '';
+}
+
+function mClearErr(field){
+  const el = document.getElementById('merr-'+field);
+  if(el) el.classList.remove('show');
+  const inp = document.getElementById('t-'+field) || document.getElementById('file-zone');
+  if(inp) inp.classList.remove('error');
+}
+function mShowErr(field){
+  const el = document.getElementById('merr-'+field);
+  if(el) el.classList.add('show');
+}
+
+
+// ── 가사 심사 모달 ──
+let currentReviewTrackId   = null;
+let currentReviewTrackTitle= '';
+let reviewLyrics = []; // 현재 모달에 로드된 가사 목록
+
+async function openReviewModal(firestoreId, trackTitle){
+  if(!firestoreId){ showToast('Firestore 트랙 ID가 없습니다.','error'); return; }
+  currentReviewTrackId    = firestoreId;
+  currentReviewTrackTitle = trackTitle;
+
+  document.getElementById('rv-track-title').textContent = trackTitle;
+  document.getElementById('rv-track-meta').textContent  = '접수된 가사 목록';
+  document.getElementById('rv-count').textContent       = '불러오는 중...';
+  document.getElementById('rv-lyric-list').innerHTML    =
+    `<div class="review-empty"><div class="es-icon">⏳</div><div>가사를 불러오는 중...</div></div>`;
+  document.getElementById('review-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  await loadReviewLyrics(firestoreId);
+}
+
+function closeReviewModal(){
+  document.getElementById('review-modal').classList.remove('open');
+  document.body.style.overflow = '';
+  currentReviewTrackId = null;
+  reviewLyrics = [];
+}
+
+async function loadReviewLyrics(trackId){
+  try{
+    const snap = await fbDb.collection('lyrics')
+      .where('trackId','==', trackId)
+      .get();
+
+    reviewLyrics = [];
+    snap.forEach(doc => reviewLyrics.push({id: doc.id, ...doc.data()}));
+
+    // 제출일 오름차순 (먼저 온 순서)
+    reviewLyrics.sort((a,b)=>{
+      const ta = a.createdAt?.toMillis?a.createdAt.toMillis():0;
+      const tb = b.createdAt?.toMillis?b.createdAt.toMillis():0;
+      return ta - tb;
+    });
+
+    // 트랙 정보 업데이트
+    const trackDoc = await fbDb.collection('tracks').doc(trackId).get();
+    const trackData = trackDoc.data()||{};
+    document.getElementById('rv-track-meta').textContent =
+      [trackData.genre, trackData.bpm?trackData.bpm+'BPM':null].filter(Boolean).join(' · ')
+      + ` · 상금 ₩${(trackData.prize||0).toLocaleString()}`;
+
+    document.getElementById('rv-count').textContent = `${reviewLyrics.length}건 접수`;
+    renderReviewLyrics(reviewLyrics, trackData);
+
+  }catch(e){
+    console.error('가사 로드 오류:', e);
+    document.getElementById('rv-lyric-list').innerHTML =
+      `<div class="review-empty" style="color:var(--red);">
+        <div class="es-icon">⚠️</div>
+        <div>불러오기 실패: ${e.message}</div>
+       </div>`;
+  }
+}
+
+function renderReviewLyrics(lyrics, trackData){
+  const list = document.getElementById('rv-lyric-list');
+  if(!lyrics.length){
+    list.innerHTML = `
+      <div class="review-empty">
+        <div class="es-icon">✍️</div>
+        <div>아직 접수된 가사가 없습니다.<br/>공모 기간 동안 작사가들이 가사를 제출합니다.</div>
+      </div>`;
+    return;
+  }
+
+  const hasAccepted = lyrics.some(l => l.status === 'accepted');
+
+  list.innerHTML = lyrics.map((l, idx) => {
+    const date = l.createdAt?.toDate
+      ? l.createdAt.toDate().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})
+      : '';
+    const statusLabel = {pending:'심사중', accepted:'채택됨', rejected:'거절됨'}[l.status]||'심사중';
+    const statusClass = {pending:'pending', accepted:'accepted', rejected:'rejected'}[l.status]||'pending';
+
+    // 가사 파트 블록 생성
+    const parts = [
+      {label:'Verse 1 (절)', val:l.verse1},
+      {label:'Chorus (후렴)', val:l.chorus},
+      {label:'Verse 2 (절)', val:l.verse2},
+      {label:'Bridge (브릿지)', val:l.bridge},
+    ].filter(p=>p.val && p.val.trim());
+
+    const partsHtml = parts.map(p=>`
+      <div class="lc-block">
+        <div class="lc-block-label">${p.label}</div>
+        <div class="lc-block-text">${escHtml(p.val)}</div>
+      </div>`).join('');
+
+    const noteHtml = l.note
+      ? `<div class="lc-note">💬 ${escHtml(l.note)}</div>` : '';
+
+    // 버튼 영역
+    let actionsHtml = '';
+    if(l.status === 'accepted'){
+      actionsHtml = `<div class="lc-accepted-msg">✅ 채택된 가사입니다. 상금이 정산됩니다.</div>`;
+    } else if(l.status === 'rejected'){
+      actionsHtml = `<div class="lc-rejected-msg">❌ 거절된 가사입니다.</div>`;
+    } else {
+      actionsHtml = `
+        <div class="lc-actions">
+          <button class="lc-accept-btn"
+            onclick="decideLyric('${l.id}','accepted','${escHtml(l.lyricistUid||'')}',${trackData.prize||0})"
+            ${hasAccepted?'disabled title="이미 채택된 가사가 있습니다"':''}>
+            ✅ 채택하기
+          </button>
+          <button class="lc-reject-btn"
+            onclick="decideLyric('${l.id}','rejected','','0')">
+            ❌ 거절
+          </button>
+          <span style="font-size:12px;color:var(--text3);margin-left:4px;">
+            ${hasAccepted?'⚠ 이미 채택된 가사가 있습니다':'채택 시 상금이 자동 정산됩니다'}
+          </span>
+        </div>`;
+    }
+
+    return `
+    <div class="lyric-card" id="lcard-${l.id}">
+      <div class="lc-header">
+        <div class="lc-num">${idx+1}</div>
+        <div class="lc-author">✍️ ${escHtml(l.lyricistName||'익명')}</div>
+        ${l.humanPledge ? `<span class="lc-human-badge" title="AI 미사용, 직접 작성 서약 완료">✋ 사람이 직접 씀</span>` : ''}
+        <span class="lc-status-badge ${statusClass}">${statusLabel}</span>
+        <div class="lc-date">${date}</div>
+      </div>
+      <div class="lyric-content">
+        ${partsHtml||`<div style="font-size:13px;color:var(--text3);">(내용 없음)</div>`}
+        ${noteHtml}
+      </div>
+      ${actionsHtml}
+    </div>`;
+  }).join('');
+}
+
+// ── 채택 / 거절 처리 ──
+async function decideLyric(lyricId, decision, lyricistUid, trackPrize){
+  const isAccept = decision === 'accepted';
+  const confirmMsg = isAccept
+    ? `이 가사를 채택하시겠습니까?\n채택 시 작사가에게 ₩${Math.floor(Number(trackPrize)*0.85).toLocaleString()}이 정산됩니다.`
+    : '이 가사를 거절하시겠습니까?';
+  if(!confirm(confirmMsg)) return;
+
+  // 버튼 비활성화
+  const card = document.getElementById(`lcard-${lyricId}`);
+  card.querySelectorAll('button').forEach(b=>b.disabled=true);
+
+  try{
+    const batch = fbDb.batch();
+
+    // 1. 가사 상태 업데이트
+    const lyricRef = fbDb.collection('lyrics').doc(lyricId);
+    const prizeEarned = isAccept ? Math.floor(Number(trackPrize)*0.85) : 0;
+    batch.update(lyricRef, {
+      status      : decision,
+      prizeEarned : prizeEarned,
+      decidedAt   : firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt   : firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 2. 채택 시 — 트랙 상태 'closed'로, 작사가 통계 업데이트
+    if(isAccept){
+      const trackRef = fbDb.collection('tracks').doc(currentReviewTrackId);
+      batch.update(trackRef, {
+        status   : 'closed',
+        acceptedLyricId  : lyricId,
+        acceptedLyricist : lyricistUid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      if(lyricistUid){
+        const lyricistRef = fbDb.collection('users').doc(lyricistUid);
+        batch.update(lyricistRef, {
+          acceptedCount: firebase.firestore.FieldValue.increment(1),
+          totalEarned  : firebase.firestore.FieldValue.increment(prizeEarned),
+          updatedAt    : firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+
+    await batch.commit();
+
+    showToast(isAccept ? `✅ 채택 완료! 작사가에게 ₩${prizeEarned.toLocaleString()} 정산됩니다.` : '거절 처리되었습니다.', isAccept?'success':'info');
+
+    // 모달 가사 목록 갱신
+    await loadReviewLyrics(currentReviewTrackId);
+    // 대시보드 목록도 갱신
+    loadDashboard();
+
+  }catch(e){
+    showToast('처리 중 오류: '+e.message,'error');
+    card.querySelectorAll('button').forEach(b=>b.disabled=false);
+  }
+}
+let currentTrackForLyric = null; // 현재 응모 중인 트랙
+
+function goLyricistDashboard(){
+  document.querySelector('.page').style.display = 'none';
+  document.getElementById('lyricist-dashboard').style.display = 'block';
+  const uid = currentUserProfile?.uid || '사용자';
+  document.getElementById('ldash-greeting').textContent =
+    `${uid}님, 마음에 드는 음원에 가사를 응모해보세요!`;
+  document.getElementById('ldash-avatar').textContent = uid.charAt(0).toUpperCase();
+  document.getElementById('ldash-username').textContent = uid;
+  loadBrowseTracks();
+  loadMySubmissions();
+}
+
+// ── 탭 전환 ──
+function switchLTab(tab){
+  const browseBtn = document.getElementById('ltab-browse');
+  const mineBtn   = document.getElementById('ltab-mine');
+  const browsePane = document.getElementById('ltab-browse-pane');
+  const minePane   = document.getElementById('ltab-mine-pane');
+  if(tab === 'browse'){
+    browseBtn.style.color='var(--text)'; browseBtn.style.borderBottomColor='var(--text)';
+    mineBtn.style.color='var(--text2)'; mineBtn.style.borderBottomColor='transparent';
+    browsePane.style.display=''; minePane.style.display='none';
+  } else {
+    mineBtn.style.color='var(--text)'; mineBtn.style.borderBottomColor='var(--text)';
+    browseBtn.style.color='var(--text2)'; browseBtn.style.borderBottomColor='transparent';
+    browsePane.style.display='none'; minePane.style.display='';
+    loadMySubmissions();
+  }
+}
+
+// ── 공모 음원 목록 로드 (Firestore) ──
+async function loadBrowseTracks(){
+  const list = document.getElementById('browse-list');
+  list.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div><div>음원 목록을 불러오는 중...</div></div>`;
+  try{
+    const snap = await fbDb.collection('tracks')
+      .where('status','==','open')
+      .get();
+    const tracks = [];
+    snap.forEach(doc => tracks.push({id: doc.id, ...doc.data()}));
+    // 등록일 내림차순 정렬
+    tracks.sort((a,b)=>{
+      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.savedAt||0).getTime();
+      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.savedAt||0).getTime();
+      return tb - ta;
+    });
+    renderBrowseList(tracks);
+  }catch(e){
+    console.error('음원 목록 로드 오류:', e);
+    list.innerHTML = `<div class="empty-state" style="color:var(--red);">
+      <div class="es-icon">⚠️</div>
+      <div>목록을 불러오지 못했습니다.<br/>${e.message}</div></div>`;
+  }
+}
+
+function renderBrowseList(tracks){
+  const list = document.getElementById('browse-list');
+  if(!tracks.length){
+    list.innerHTML = `<div class="empty-state">
+      <div class="es-icon">🎵</div>
+      <div>현재 공모 중인 음원이 없습니다.<br/>잠시 후 다시 확인해보세요!</div></div>`;
+    return;
+  }
+  list.innerHTML = tracks.map(t => {
+    let ddayStr='', ddayClass='normal';
+    try{
+      const dl = t.deadline?.toDate ? t.deadline.toDate() : new Date(t.deadline);
+      const d  = Math.ceil((dl - new Date())/(1000*60*60*24));
+      ddayStr  = d > 0 ? `D-${d}` : '마감';
+      ddayClass= d<=2 ? 'urgent' : d<=7 ? 'soon' : 'normal';
+    }catch(e){}
+    const prize   = t.prize||0;
+    const entries = t.entriesCount||0;
+    const genre   = t.genre||'';
+    const bpm     = t.bpm ? `· ${t.bpm} BPM` : '';
+    const artist  = t.artist ? `· ${escHtml(t.artist)}` : '';
+    const concept = t.concept||'';
+    return `
+    <div class="browse-card">
+      <div class="browse-card-top">
+        <div class="bc-icon">🎵</div>
+        <div class="bc-info">
+          <div class="bc-title">${escHtml(t.title)}</div>
+          <div class="bc-meta">
+            ${genre ? `<span>${escHtml(genre)}</span>` : ''}${artist} ${bpm}
+            ${t.composerName ? `· 등록자: ${escHtml(t.composerName)}` : ''}
+          </div>
+        </div>
+      </div>
+      ${concept ? `<div class="bc-concept">${escHtml(concept)}</div>` : ''}
+      <div class="bc-footer">
+        <span class="bc-prize">₩${prize.toLocaleString()}</span>
+        <span class="bc-dday ${ddayClass}">${ddayStr}</span>
+        <span class="bc-entries">응모 ${entries}건</span>
+        <button class="bc-play-btn" onclick="playBrowseTrack('${t.id}')">▶ 미리듣기</button>
+        <button class="bc-apply-btn" onclick="openLyricModal(${JSON.stringify(t).replace(/"/g,'&quot;')})">✍️ 가사 응모</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 내 응모 내역 로드 ──
+// 내가 제출한 응모 가사 캐시 (상세보기 모달용)
+let mySubmissionsCache = [];
+
+async function loadMySubmissions(){
+  if(!fbAuth.currentUser) return;
+  const list = document.getElementById('my-submission-list');
+  list.innerHTML = `<div class="empty-state"><div class="es-icon">⏳</div><div>불러오는 중...</div></div>`;
+  try{
+    const snap = await fbDb.collection('lyrics')
+      .where('lyricistUid','==', fbAuth.currentUser.uid)
+      .get();
+    const subs = [];
+    snap.forEach(doc => subs.push({id:doc.id, ...doc.data()}));
+    subs.sort((a,b)=>{
+      const ta = a.createdAt?.toMillis?a.createdAt.toMillis():0;
+      const tb = b.createdAt?.toMillis?b.createdAt.toMillis():0;
+      return tb-ta;
+    });
+    mySubmissionsCache = subs;
+
+    // 통계 업데이트
+    const accepted = subs.filter(s=>s.status==='accepted');
+    const earned   = accepted.reduce((s,a)=>s+(a.prizeEarned||0),0);
+    document.getElementById('lstat-submitted').textContent = subs.length;
+    document.getElementById('lstat-accepted').textContent  = accepted.length;
+    document.getElementById('lstat-earned').textContent    = '₩'+earned.toLocaleString();
+
+    // 작사가 아이콘 배지: 내 가사가 선정(채택)된 건수 표시
+    const ldashBadge = document.getElementById('ldash-avatar-badge');
+    if(ldashBadge){
+      if(accepted.length > 0){
+        ldashBadge.textContent = accepted.length > 99 ? '99+' : accepted.length;
+        ldashBadge.style.display = 'flex';
+      } else {
+        ldashBadge.style.display = 'none';
+      }
+    }
+
+    if(!subs.length){
+      list.innerHTML=`<div class="empty-state"><div class="es-icon">✍️</div><div>아직 응모한 가사가 없습니다.<br/>공모 음원 탐색 탭에서 음원을 골라 응모해보세요!</div></div>`;
+      return;
+    }
+    list.innerHTML = subs.map(s=>{
+      const statusMap = {pending:'심사중',accepted:'채택 ✓',rejected:'미채택'};
+      const statusClass= {pending:'pending',accepted:'accepted',rejected:'rejected'};
+      const date = s.createdAt?.toDate ? s.createdAt.toDate().toLocaleDateString('ko-KR') : '';
+      return `
+      <div class="sub-item">
+        <div style="font-size:18px;flex-shrink:0;margin-top:2px;">✍️</div>
+        <div class="sub-item-info">
+          <div class="sub-item-title">${escHtml(s.trackTitle||'(제목 없음)')}</div>
+          <div class="sub-item-meta">
+            ${escHtml(s.genre||'')} · 상금 ₩${(s.trackPrize||0).toLocaleString()}
+            ${date ? ` · 응모일 ${date}` : ''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;">
+          <span class="sub-status ${statusClass[s.status]||'pending'}">${statusMap[s.status]||'심사중'}</span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="viewSubmissionDetail('${s.id}')" style="
+              background:none;border:1px solid var(--border);border-radius:var(--r);
+              color:var(--text2);font-size:11px;padding:3px 8px;cursor:pointer;
+              font-family:inherit;transition:.15s;white-space:nowrap;
+            " onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'"
+               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+               title="내가 제출한 가사 상세보기">
+              📄 상세보기
+            </button>
+            ${s.status === 'pending' ? `
+            <button onclick="cancelSubmission('${s.id}','${s.trackId||''}')" style="
+              background:none;border:1px solid var(--border);border-radius:var(--r);
+              color:var(--text2);font-size:11px;padding:3px 8px;cursor:pointer;
+              font-family:inherit;transition:.15s;white-space:nowrap;
+            " onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'"
+               onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"
+               title="응모 취소">
+              응모 취소
+            </button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    list.innerHTML=`<div class="empty-state" style="color:var(--red);">⚠️ 불러오기 실패: ${e.message}</div>`;
+  }
+}
+
+// ── 응모 취소 (심사중인 가사만 가능) ──
+async function cancelSubmission(lyricId, trackId){
+  if(!lyricId) return;
+  const ok = confirm('이 응모를 취소하시겠습니까?\n취소하면 제출한 가사는 삭제되며 복구할 수 없습니다.');
+  if(!ok) return;
+
+  try{
+    // 1. 응모한 가사 문서 삭제
+    await fbDb.collection('lyrics').doc(lyricId).delete();
+
+    // 2. 트랙의 응모 건수 -1 (트랙이 이미 삭제되었으면 무시)
+    if(trackId){
+      try{
+        await fbDb.collection('tracks').doc(trackId).update({
+          entriesCount: firebase.firestore.FieldValue.increment(-1),
+        });
+      }catch(e){ /* 트랙이 삭제된 경우 등은 무시 */ }
+    }
+
+    // 3. 내 응모 통계 -1
+    try{
+      await fbDb.collection('users').doc(fbAuth.currentUser.uid).update({
+        submissionsCount: firebase.firestore.FieldValue.increment(-1),
+        updatedAt       : firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }catch(e){ /* 무시 */ }
+
+    showToast('✅ 응모가 취소되었습니다.', 'success');
+    loadMySubmissions();
+  }catch(e){
+    showToast('취소 중 오류: ' + e.message, 'error');
+  }
+}
+
+// ── 내가 제출한 가사 상세보기 ──
+function viewSubmissionDetail(lyricId){
+  const s = mySubmissionsCache.find(x => x.id === lyricId);
+  if(!s){ showToast('제출 내역을 찾을 수 없습니다.','error'); return; }
+
+  const statusMap   = {pending:'심사중',accepted:'채택 ✓',rejected:'미채택'};
+  const statusClass = {pending:'pending',accepted:'accepted',rejected:'rejected'};
+  const date = s.createdAt?.toDate
+    ? s.createdAt.toDate().toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'})
+    : '';
+
+  document.getElementById('sd-track-title').textContent = s.trackTitle || '(제목 없음)';
+  document.getElementById('sd-track-meta').innerHTML =
+    [escHtml(s.genre||''), s.trackPrize ? `상금 ₩${s.trackPrize.toLocaleString()}` : '', date ? `응모일 ${date}` : '']
+      .filter(Boolean).join(' · ');
+  document.getElementById('sd-status').textContent = statusMap[s.status] || '심사중';
+  document.getElementById('sd-status').className   = `sub-status ${statusClass[s.status]||'pending'}`;
+
+  const parts = [
+    {label:'Verse 1 (절)', val:s.verse1},
+    {label:'Chorus (후렴)', val:s.chorus},
+    {label:'Verse 2 (절)', val:s.verse2},
+    {label:'Bridge (브릿지)', val:s.bridge},
+  ].filter(p=>p.val && p.val.trim());
+
+  const partsHtml = parts.map(p=>`
+    <div class="lc-block">
+      <div class="lc-block-label">${p.label}</div>
+      <div class="lc-block-text">${escHtml(p.val)}</div>
+    </div>`).join('');
+
+  const noteHtml = s.note ? `<div class="lc-note">💬 ${escHtml(s.note)}</div>` : '';
+  const pledgeHtml = s.humanPledge
+    ? `<div class="human-note" style="margin-top:14px;">✋ AI 미사용, 직접 작성 서약 완료된 응모입니다.</div>` : '';
+
+  document.getElementById('sd-lyric-content').innerHTML =
+    (partsHtml || `<div style="font-size:13px;color:var(--text3);">(내용 없음)</div>`) + noteHtml + pledgeHtml;
+
+  document.getElementById('sub-detail-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSubDetailModal(){
+  document.getElementById('sub-detail-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── 미리듣기 (Firestore에 localId 저장돼있으면 IndexedDB에서) ──
+async function playBrowseTrack(trackId){
+  try{
+    // Firestore에서 localId 조회
+    const doc = await fbDb.collection('tracks').doc(trackId).get();
+    const data = doc.data();
+    if(data?.localId){
+      await playLocalTrack(data.localId);
+    } else {
+      showToast('이 음원은 다른 PC에서 등록되어 미리듣기가 불가합니다.','info');
+    }
+  }catch(e){
+    showToast('미리듣기 오류: '+e.message,'error');
+  }
+}
+
+// ── 가사 응모 모달 ──
+function openLyricModal(track){
+  currentTrackForLyric = typeof track==='string' ? JSON.parse(track) : track;
+  const t = currentTrackForLyric;
+  document.getElementById('lm-track-title').textContent = t.title||'';
+  document.getElementById('lm-track-meta').textContent  =
+    [t.genre, t.bpm?t.bpm+'BPM':null, t.artist].filter(Boolean).join(' · ');
+  document.getElementById('lm-track-prize').textContent =
+    `₩${(t.prize||0).toLocaleString()}`;
+  document.getElementById('lm-concept').textContent = t.concept||'(콘셉트 설명 없음)';
+  // 폼 초기화
+  ['ly-verse1','ly-chorus','ly-verse2','ly-bridge','ly-note'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('ly-error').style.display='none';
+  document.getElementById('ly-pledge-error').style.display='none';
+  document.getElementById('ly-human-pledge').checked = false;
+  document.getElementById('ly-pledge-label').classList.remove('checked');
+  document.getElementById('lyric-form-area').style.display='';
+  document.getElementById('lyric-submitted').style.display='none';
+  document.getElementById('lyric-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+
+function closeLyricModal(){
+  document.getElementById('lyric-modal').classList.remove('open');
+  document.body.style.overflow='';
+  currentTrackForLyric=null;
+}
+
+// ── 가사 제출 ──
+async function submitLyric(){
+  const verse1 = document.getElementById('ly-verse1').value.trim();
+  const chorus = document.getElementById('ly-chorus').value.trim();
+  const verse2 = document.getElementById('ly-verse2').value.trim();
+  const bridge = document.getElementById('ly-bridge').value.trim();
+  const note   = document.getElementById('ly-note').value.trim();
+
+  if(!verse1 && !chorus){
+    document.getElementById('ly-error').style.display='block';
+    return;
+  }
+  document.getElementById('ly-error').style.display='none';
+
+  const humanPledge = document.getElementById('ly-human-pledge').checked;
+  if(!humanPledge){
+    document.getElementById('ly-pledge-error').style.display='block';
+    return;
+  }
+  document.getElementById('ly-pledge-error').style.display='none';
+
+  const btn = document.getElementById('lyric-submit-btn');
+  btn.disabled=true; btn.classList.add('loading');
+
+  try{
+    const user = fbAuth.currentUser;
+    const t    = currentTrackForLyric;
+
+    // Firestore lyrics 컬렉션에 저장
+    await fbDb.collection('lyrics').add({
+      trackId      : t.id,
+      trackTitle   : t.title||'',
+      trackPrize   : t.prize||0,
+      genre        : t.genre||'',
+      composerUid  : t.composerUid||'',
+      lyricistUid  : user.uid,
+      lyricistName : currentUserProfile?.uid||'',
+      verse1, chorus, verse2, bridge, note,
+      status       : 'pending',   // pending | accepted | rejected
+      humanPledge  : true,   // AI 미사용(사람 직접 작성) 서약 여부
+      prizeEarned  : 0,
+      createdAt    : firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt    : firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // 트랙 응모 수 +1
+    await fbDb.collection('tracks').doc(t.id).update({
+      entriesCount: firebase.firestore.FieldValue.increment(1),
+    });
+
+    // 내 Firestore 통계 업데이트
+    await fbDb.collection('users').doc(user.uid).update({
+      submissionsCount: firebase.firestore.FieldValue.increment(1),
+      updatedAt       : firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    btn.disabled=false; btn.classList.remove('loading');
+    // 성공 화면
+    document.getElementById('lyric-form-area').style.display='none';
+    document.getElementById('lyric-submitted').style.display='flex';
+    showToast('✅ 가사가 성공적으로 응모되었습니다!','success');
+    // 목록 갱신
+    loadBrowseTracks();
+    loadMySubmissions();
+
+  }catch(e){
+    btn.disabled=false; btn.classList.remove('loading');
+    showToast('제출 중 오류: '+e.message,'error');
+  }
+}
+
+function setLoginLoading(on){
+  const btn = document.getElementById('login-btn');
+  btn.disabled = on; btn.classList.toggle('loading', on);
+}
+function setResetLoading(on){
+  const btn = document.getElementById('reset-btn');
+  btn.disabled = on; btn.classList.toggle('loading', on);
+}
+
+function getLoginError(code){
+  const map={
+    'auth/user-not-found'      :'존재하지 않는 계정입니다.',
+    'auth/wrong-password'      :'비밀번호가 올바르지 않습니다.',
+    'auth/invalid-credential'  :'이메일 또는 비밀번호를 확인해주세요.',
+    'auth/invalid-email'       :'올바르지 않은 이메일 형식입니다.',
+    'auth/too-many-requests'   :'시도 횟수 초과. 잠시 후 다시 시도해주세요.',
+    'auth/user-disabled'       :'비활성화된 계정입니다.',
+    'auth/network-request-failed':'네트워크 오류가 발생했습니다.',
+    'auth/popup-closed-by-user':'로그인 창이 닫혔습니다.',
+  };
+  return map[code] || `오류 발생 (${code})`;
+}
+
+// 페이지 로드 시 이미 로그인된 상태 감지 (새로고침 시에도 로그인 유지)
+// onAuthStateChanged는 페이지 로드 직후 현재 인증 상태로 최초 1회 호출된 뒤,
+// 이후 로그인/로그아웃 등 인증 변화가 생길 때마다 다시 호출된다.
+// 여기서는 "최초 1회(=새로고침 직후 상태 복원)"에만 처리하며,
+// 로그인 상태 확인이 끝날 때까지는 로딩 화면만 보여주고
+// 회원가입/로그인 화면이 잠깐이라도 보이지 않도록 한다.
+let authRestoreChecked = false;
+fbAuth?.onAuthStateChanged(user => {
+  if(authRestoreChecked) return;
+  authRestoreChecked = true;
+  const loadingEl = document.getElementById('auth-check-loading');
+  if(user){
+    // 로그인 세션이 남아있으면 회원가입/로그인 화면을 거치지 않고 바로 대시보드로 이동
+    // (showLoginSuccess 내부에서 대시보드 전환에 약간의 지연이 있으므로
+    //  그 전환이 끝난 뒤에 로딩 화면을 걷어낸다)
+    showLoginSuccess(user);
+    setTimeout(() => { loadingEl.style.display = 'none'; }, 700);
+  } else {
+    // 로그인 상태가 아니면 그때 회원가입 화면을 표시
+    document.querySelector('.page').style.display = 'flex';
+    loadingEl.style.display = 'none';
+  }
+});
+
+// ── 토스트 ──
+function showToast(msg, type='info'){
+  const box = document.getElementById('toast-box');
+  const t = document.createElement('div');
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  box.appendChild(t);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>t.classList.add('show')));
+  setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>t.remove(), 400); }, 4000);
+}
+</script>
 </body>
 </html>
